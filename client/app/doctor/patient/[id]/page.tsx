@@ -1,0 +1,477 @@
+"use client"
+
+import type React from "react"
+
+import { useEffect, useState } from "react"
+import { useRouter, useParams } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { mockPatients, mockVitals, mockPrescriptions, mockLabTests } from "@/lib/mock-data"
+import DoctorHeader from "@/components/doctor/doctor-header"
+
+export default function PatientDetailsPage() {
+  const router = useRouter()
+  const params = useParams()
+  const { user, isAuthenticated, loading } = useAuth()
+  const patientId = params.id as string
+
+  const patient = mockPatients.find((p) => p.id === patientId)
+  const patientVitals = mockVitals.filter((v) => v.patientId === patientId)
+  const patientPrescriptions = mockPrescriptions.filter((p) => p.patientId === patientId)
+  const patientLabTests = mockLabTests.filter((t) => t.patientId === patientId)
+
+  const [diagnosis, setDiagnosis] = useState("")
+  const [remarks, setRemarks] = useState("")
+  const [vitals, setVitals] = useState({
+    height: "",
+    weight: "",
+    temperature: "",
+    bloodPressure: "",
+    heartRate: "",
+    respiratoryRate: "",
+  })
+  const [medicines, setMedicines] = useState([{ medicine: "", route: "", dose: "", frequency: "" }])
+  const [advice, setAdvice] = useState("")
+
+  const [needsInjection, setNeedsInjection] = useState(false)
+  const [injectionDetails, setInjectionDetails] = useState("")
+  const [needsLabTest, setNeedsLabTest] = useState(false)
+  const [labTestDetails, setLabTestDetails] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState("")
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push("/doctor/signin")
+    }
+  }, [isAuthenticated, loading, router])
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
+  if (!isAuthenticated || user?.role !== "doctor") {
+    return null
+  }
+
+  if (!patient) {
+    return <div className="flex items-center justify-center min-h-screen">Patient not found</div>
+  }
+
+  const handleVitalsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setVitals((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleMedicineChange = (index: number, field: string, value: string) => {
+    const newMedicines = [...medicines]
+    newMedicines[index] = { ...newMedicines[index], [field]: value }
+    setMedicines(newMedicines)
+  }
+
+  const addMedicine = () => {
+    setMedicines([...medicines, { medicine: "", route: "", dose: "", frequency: "" }])
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveMessage("")
+
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        setSaveMessage("❌ Authentication token not found")
+        setSaving(false)
+        return
+      }
+
+      const response = await fetch(`http://localhost:5000/api/patients/${patient.patientId}/save-record`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          diagnosis,
+          remarks,
+          advice,
+          medicines,
+          needsInjection,
+          injectionDetails,
+          needsLabTest,
+          labTestDetails,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        setSaveMessage(`❌ Error: ${errorData.message || "Failed to save patient record"}`)
+        setSaving(false)
+        return
+      }
+
+      const data = await response.json()
+      setSaveMessage("✅ Patient record saved successfully!")
+
+      // Redirect back to dashboard after 2 seconds
+      setTimeout(() => {
+        router.push("/doctor/dashboard")
+      }, 2000)
+    } catch (error) {
+      console.error("Error saving patient record:", error)
+      setSaveMessage("❌ Error saving patient record")
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <DoctorHeader user={user} />
+
+      <main className="max-w-6xl mx-auto p-4 md:p-6">
+        {/* Patient Info */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Patient Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Name</p>
+                <p className="font-medium">{patient.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Age</p>
+                <p className="font-medium">{patient.age}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Sex</p>
+                <p className="font-medium capitalize">{patient.sex}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Patient ID</p>
+                <p className="font-medium">{patient.patientId}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Occupation</p>
+                <p className="font-medium">{patient.occupation}</p>
+              </div>
+              <div className="md:col-span-3">
+                <p className="text-sm text-gray-600">Address</p>
+                <p className="font-medium">{patient.address}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Diagnosis & Vitals */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Diagnosis */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Diagnosis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <textarea
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  placeholder="Enter diagnosis details"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  rows={4}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Remarks</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Enter additional remarks or notes"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  rows={3}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Vitals */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Vitals</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Height (cm)</label>
+                    <Input
+                      type="number"
+                      name="height"
+                      value={vitals.height}
+                      onChange={handleVitalsChange}
+                      placeholder="Height"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Weight (kg)</label>
+                    <Input
+                      type="number"
+                      name="weight"
+                      value={vitals.weight}
+                      onChange={handleVitalsChange}
+                      placeholder="Weight"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Temperature (°C)</label>
+                    <Input
+                      type="number"
+                      name="temperature"
+                      value={vitals.temperature}
+                      onChange={handleVitalsChange}
+                      placeholder="Temperature"
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Blood Pressure</label>
+                    <Input
+                      type="text"
+                      name="bloodPressure"
+                      value={vitals.bloodPressure}
+                      onChange={handleVitalsChange}
+                      placeholder="e.g., 120/80"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Heart Rate (bpm)</label>
+                    <Input
+                      type="number"
+                      name="heartRate"
+                      value={vitals.heartRate}
+                      onChange={handleVitalsChange}
+                      placeholder="Heart Rate"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Respiratory Rate</label>
+                    <Input
+                      type="number"
+                      name="respiratoryRate"
+                      value={vitals.respiratoryRate}
+                      onChange={handleVitalsChange}
+                      placeholder="Respiratory Rate"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Medicines */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Prescribe Medicines</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {medicines.map((med, idx) => (
+                  <div key={idx} className="p-4 border border-gray-200 rounded-lg space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Medicine Name</label>
+                        <Input
+                          value={med.medicine}
+                          onChange={(e) => handleMedicineChange(idx, "medicine", e.target.value)}
+                          placeholder="Medicine name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Route</label>
+                        <select
+                          value={med.route}
+                          onChange={(e) => handleMedicineChange(idx, "route", e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="">Select route</option>
+                          <option value="Oral">Oral</option>
+                          <option value="IV">IV</option>
+                          <option value="IM">IM</option>
+                          <option value="Topical">Topical</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Dose</label>
+                        <Input
+                          value={med.dose}
+                          onChange={(e) => handleMedicineChange(idx, "dose", e.target.value)}
+                          placeholder="e.g., 500mg"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Frequency</label>
+                        <Input
+                          value={med.frequency}
+                          onChange={(e) => handleMedicineChange(idx, "frequency", e.target.value)}
+                          placeholder="e.g., Twice daily"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <Button onClick={addMedicine} variant="outline" className="w-full bg-transparent">
+                  Add Another Medicine
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Requirements</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Injection/IV Checkbox */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="needsInjection"
+                      checked={needsInjection}
+                      onChange={(e) => setNeedsInjection(e.target.checked)}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    <label htmlFor="needsInjection" className="text-sm font-medium cursor-pointer">
+                      Patient needs Injection / IV
+                    </label>
+                  </div>
+                  {needsInjection && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Injection/IV Details</label>
+                      <Input
+                        value={injectionDetails}
+                        onChange={(e) => setInjectionDetails(e.target.value)}
+                        placeholder="e.g., Saline IV, Antibiotic injection"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Lab Test Checkbox */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="needsLabTest"
+                      checked={needsLabTest}
+                      onChange={(e) => setNeedsLabTest(e.target.checked)}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    <label htmlFor="needsLabTest" className="text-sm font-medium cursor-pointer">
+                      Patient needs Lab Tests
+                    </label>
+                  </div>
+                  {needsLabTest && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Lab Test Details</label>
+                      <Input
+                        value={labTestDetails}
+                        onChange={(e) => setLabTestDetails(e.target.value)}
+                        placeholder="e.g., Blood test, X-ray, Ultrasound"
+                      />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Advice & Actions */}
+          <div className="space-y-6">
+            {/* Advice */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Advice</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <textarea
+                  value={advice}
+                  onChange={(e) => setAdvice(e.target.value)}
+                  placeholder="Enter medical advice for the patient"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  rows={6}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Previous Vitals */}
+            {patientVitals.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Previous Vitals</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {patientVitals.map((vital) => (
+                    <div key={vital.id} className="p-2 bg-gray-50 rounded">
+                      <p className="font-medium">BP: {vital.bloodPressure}</p>
+                      <p>HR: {vital.heartRate} bpm</p>
+                      <p className="text-xs text-gray-600">{new Date(vital.recordedAt).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {patientLabTests.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Lab Test Results</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {patientLabTests.map((test) => (
+                    <div key={test.id} className="p-3 bg-blue-50 rounded border border-blue-200">
+                      <p className="font-medium text-blue-900">{test.testName}</p>
+                      <p className="text-xs text-blue-700">Sample: {test.sampleType}</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Status: <span className="font-semibold capitalize">{test.status}</span>
+                      </p>
+                      {test.result && <p className="text-xs text-blue-700 mt-1">Result: {test.result}</p>}
+                      {test.uploadedFile && <p className="text-xs text-blue-700 mt-1">📄 {test.uploadedFile.name}</p>}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Actions */}
+            <div className="space-y-2">
+              {saveMessage && (
+                <div
+                  className={`p-3 rounded-md text-sm ${
+                    saveMessage.includes("✅")
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {saveMessage}
+                </div>
+              )}
+              <Button
+                onClick={handleSave}
+                className="w-full bg-green-600 hover:bg-green-700"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Patient Record"}
+              </Button>
+              <Button onClick={() => router.push("/doctor/dashboard")} variant="outline" className="w-full">
+                Back to Dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}

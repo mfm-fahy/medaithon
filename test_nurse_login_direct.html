@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nurse Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #6b46c1;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #553399;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #6b46c1;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        .info {
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Nurse Login Test</h1>
+        
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" value="nurse_alice" placeholder="Enter username">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="password123" placeholder="Enter password">
+        </div>
+        
+        <button onclick="testLogin()">Test Login</button>
+        
+        <div class="output" id="output">
+            <span class="info">Output will appear here...</span>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            document.getElementById('output').innerHTML = '';
+            
+            log('🔵 Starting login test...', 'info');
+            log(`📝 Username: ${username}`, 'info');
+            log(`📝 Password: ${'*'.repeat(password.length)}`, 'info');
+            log('', 'info');
+            
+            try {
+                log('🌐 Sending request to http://localhost:5000/api/auth/login', 'info');
+                
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                log(`📊 Response Status: ${response.status}`, 'info');
+                log(`📊 Response OK: ${response.ok}`, 'info');
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Login successful!', 'success');
+                    log('', 'info');
+                    log('📋 Response Data:', 'info');
+                    log(JSON.stringify(data, null, 2), 'success');
+                    
+                    // Store in localStorage
+                    localStorage.setItem('auth_token', data.token);
+                    localStorage.setItem('hospital_user', JSON.stringify(data.user));
+                    log('', 'info');
+                    log('💾 Token and user stored in localStorage', 'success');
+                } else {
+                    log('❌ Login failed!', 'error');
+                    log('', 'info');
+                    log('📋 Error Response:', 'info');
+                    log(JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                log('', 'info');
+                log('⚠️  Make sure the backend is running on http://localhost:5000', 'error');
+            }
+        }
+
+        // Test on page load
+        window.addEventListener('load', () => {
+            log('✅ Page loaded successfully', 'success');
+            log('📝 Demo credentials are pre-filled', 'info');
+            log('👉 Click "Test Login" to test the login', 'info');
+        });
+    </script>
+</body>
+</html>
+

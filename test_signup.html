@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Signup</title>
+</head>
+<body>
+    <h1>Test Patient Signup</h1>
+    <button onclick="testSignup()">Test Signup</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function testSignup() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing signup...\n';
+
+            try {
+                const data = {
+                    username: 'testuser' + Date.now(),
+                    email: 'test' + Date.now() + '@example.com',
+                    password: 'password123',
+                    name: 'Test User',
+                    role: 'patient',
+                    age: 30,
+                    sex: 'male',
+                    phone: '1234567890',
+                    occupation: 'Engineer',
+                    address: '123 Main St'
+                };
+
+                output.textContent += 'Sending data:\n' + JSON.stringify(data, null, 2) + '\n\n';
+
+                const response = await fetch('http://localhost:5000/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                output.textContent += 'Response Status: ' + response.status + '\n';
+                output.textContent += 'Response Headers:\n';
+                for (let [key, value] of response.headers) {
+                    output.textContent += '  ' + key + ': ' + value + '\n';
+                }
+                output.textContent += '\n';
+
+                const responseData = await response.json();
+                output.textContent += 'Response Body:\n' + JSON.stringify(responseData, null, 2) + '\n';
+
+                if (response.ok) {
+                    output.textContent += '\n✅ Signup successful!\n';
+                    output.textContent += 'Patient ID: ' + responseData.user.patientId + '\n';
+                    output.textContent += 'Token: ' + responseData.token.substring(0, 50) + '...\n';
+                } else {
+                    output.textContent += '\n❌ Signup failed!\n';
+                }
+            } catch (error) {
+                output.textContent += '\n❌ Error: ' + error.message + '\n';
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
+
