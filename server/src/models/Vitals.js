@@ -40,6 +40,11 @@ const vitalsSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    triageColor: {
+      type: String,
+      enum: ['red', 'yellow', 'green', 'blue'],
+      default: null,
+    },
     recordedAt: {
       type: Date,
       default: Date.now,

@@ -42,12 +42,16 @@ router.post('/message', authMiddleware, async (req, res) => {
   try {
     const { message, sessionId } = req.body;
 
+    console.log('🔵 Chatbot message received:', { message, sessionId });
+
     if (!message || !sessionId) {
+      console.error('❌ Missing required fields:', { message: !!message, sessionId: !!sessionId });
       return res.status(400).json({ error: 'Message and sessionId are required' });
     }
 
     const chatSession = await ChatSession.findById(sessionId);
     if (!chatSession) {
+      console.error('❌ Chat session not found:', sessionId);
       return res.status(404).json({ error: 'Chat session not found' });
     }
 
@@ -66,11 +70,15 @@ router.post('/message', authMiddleware, async (req, res) => {
         content: msg.content,
       }));
 
+    console.log('🤖 Calling OpenRouter API with', conversationHistory.length, 'messages in history');
     const aiResponse = await openRouterService.sendMessage(message, conversationHistory);
 
     if (!aiResponse.success) {
-      return res.status(500).json({ error: aiResponse.error });
+      console.error('❌ OpenRouter API error:', aiResponse.error);
+      return res.status(500).json({ error: aiResponse.error || 'Failed to get AI response' });
     }
+
+    console.log('✅ AI response received:', aiResponse.message.substring(0, 100) + '...');
 
     // Add AI response to history
     chatSession.messages.push({
@@ -92,8 +100,8 @@ router.post('/message', authMiddleware, async (req, res) => {
       session: chatSession,
     });
   } catch (error) {
-    console.error('Error sending message:', error);
-    res.status(500).json({ error: 'Failed to send message' });
+    console.error('❌ Error sending message:', error);
+    res.status(500).json({ error: 'Failed to send message: ' + error.message });
   }
 });
 
@@ -203,6 +211,54 @@ router.get('/patient-symptoms/:patientId', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error getting patient symptoms:', error);
     res.status(500).json({ error: 'Failed to get patient symptoms' });
+  }
+});
+
+// Analyze symptoms for possible diseases
+router.post('/analyze-symptoms-detailed', authMiddleware, async (req, res) => {
+  try {
+    const { symptoms, sessionId } = req.body;
+
+    console.log('🔍 Detailed symptom analysis requested:', { symptoms, sessionId });
+
+    if (!symptoms) {
+      return res.status(400).json({ error: 'Symptoms are required' });
+    }
+
+    // Call OpenRouter for detailed analysis
+    const analysis = await openRouterService.analyzeSymptoms(symptoms);
+
+    if (!analysis.success) {
+      console.warn('⚠️ Using fallback symptom analysis');
+    }
+
+    // Save to chat session if provided
+    if (sessionId) {
+      const chatSession = await ChatSession.findById(sessionId);
+      if (chatSession) {
+        // Add analysis to messages
+        chatSession.messages.push({
+          role: 'assistant',
+          content: analysis.analysis,
+          timestamp: new Date(),
+        });
+
+        // Extract symptoms
+        chatSession.symptoms.push(symptoms);
+
+        await chatSession.save();
+        console.log('✅ Analysis saved to chat session');
+      }
+    }
+
+    res.json({
+      success: true,
+      analysis: analysis.analysis,
+      usage: analysis.usage,
+    });
+  } catch (error) {
+    console.error('❌ Error analyzing symptoms:', error);
+    res.status(500).json({ error: 'Failed to analyze symptoms: ' + error.message });
   }
 });
 

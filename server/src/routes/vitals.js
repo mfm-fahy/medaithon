@@ -1,6 +1,7 @@
 const express = require('express');
 const { Vitals } = require('../models/Vitals');
 const { authMiddleware, roleMiddleware } = require('../middleware/auth');
+const { getTriageService } = require('../services/triageService');
 
 const router = express.Router();
 
@@ -19,7 +20,28 @@ router.get('/', authMiddleware, roleMiddleware(['admin', 'doctor', 'nurse']), as
 // Create vitals record
 router.post('/', authMiddleware, roleMiddleware(['nurse']), async (req, res) => {
   try {
-    const { patientId, height, weight, temperature, bloodPressure, heartRate, respiratoryRate, pulse } = req.body;
+    const { patientId, height, weight, temperature, bloodPressure, heartRate, respiratoryRate, pulse, triageColor } = req.body;
+
+    // If triageColor is not provided, predict it using the triage model
+    let finalTriageColor = triageColor;
+    if (!triageColor) {
+      try {
+        const triageService = await getTriageService();
+        finalTriageColor = await triageService.predictTriageColor({
+          height,
+          weight,
+          temperature,
+          bloodPressure,
+          heartRate,
+          respiratoryRate,
+          pulse,
+        });
+        console.log('🎯 Predicted triage color:', finalTriageColor);
+      } catch (error) {
+        console.error('⚠️ Error predicting triage color:', error);
+        finalTriageColor = 'green'; // Default to green if prediction fails
+      }
+    }
 
     const vitals = new Vitals({
       patientId,
@@ -31,6 +53,7 @@ router.post('/', authMiddleware, roleMiddleware(['nurse']), async (req, res) => 
       heartRate,
       respiratoryRate,
       pulse,
+      triageColor: finalTriageColor,
     });
 
     await vitals.save();
@@ -67,6 +90,28 @@ router.put('/:id', authMiddleware, roleMiddleware(['nurse', 'admin']), async (re
     res.json({ message: 'Vitals updated successfully', vitals });
   } catch (error) {
     res.status(500).json({ message: 'Error updating vitals', error });
+  }
+});
+
+// Predict triage color based on vitals
+router.post('/predict-triage', authMiddleware, roleMiddleware(['nurse']), async (req, res) => {
+  try {
+    const { height, weight, temperature, bloodPressure, heartRate, respiratoryRate, pulse } = req.body;
+
+    const triageService = await getTriageService();
+    const triageColor = await triageService.predictTriageColor({
+      height,
+      weight,
+      temperature,
+      bloodPressure,
+      heartRate,
+      respiratoryRate,
+      pulse,
+    });
+
+    res.json({ triageColor });
+  } catch (error) {
+    res.status(500).json({ message: 'Error predicting triage color', error });
   }
 });
 

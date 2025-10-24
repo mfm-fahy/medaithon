@@ -62,6 +62,25 @@ const visitSchema = new mongoose.Schema(
       heartRate: String,
       respiratoryRate: String,
     },
+    // Payment fields
+    paymentMethod: {
+      type: String,
+      enum: ['phonepay', 'gpay', 'creditcard', 'cash'],
+      default: 'cash',
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'completed'],
+      default: 'pending',
+    },
+    transactionId: {
+      type: String,
+      default: null,
+    },
+    amount: {
+      type: Number,
+      default: 200,
+    },
   },
   { timestamps: true }
 );

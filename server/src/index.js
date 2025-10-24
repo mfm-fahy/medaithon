@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 require('dotenv').config();
 const { connectDB } = require('./config/database');
 const wsManager = require('./services/websocket');
+const biomedicalWS = require('./services/biomedicalWebSocket');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -20,6 +21,7 @@ const chatbotRoutes = require('./routes/chatbot');
 const billingRoutes = require('./routes/billing');
 const salesRoutes = require('./routes/sales');
 const queueRoutes = require('./routes/queue');
+const biomedicalRoutes = require('./routes/biomedical');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,6 +50,7 @@ app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/queue', queueRoutes);
+app.use('/api/biomedical', biomedicalRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -63,6 +66,13 @@ wss.on('connection', (ws, req) => {
   const patientId = url.searchParams.get('patientId');
   const doctorId = url.searchParams.get('doctorId');
   const pharmacistId = url.searchParams.get('pharmacistId');
+  const biomedicalUserId = url.searchParams.get('biomedicalUserId');
+
+  // Register biomedical client if biomedicalUserId is provided
+  if (biomedicalUserId) {
+    console.log('🏥 Biomedical client connected:', biomedicalUserId);
+    biomedicalWS.registerBiomedicalClient(ws, biomedicalUserId);
+  }
 
   // Register doctor if doctorId is provided
   if (doctorId) {
@@ -103,6 +113,10 @@ wss.on('connection', (ws, req) => {
           message: `Successfully registered for patient ${patientId}`,
           timestamp: new Date(),
         }));
+      } else if (data.type === 'register-biomedical') {
+        // Register biomedical client
+        const userId = data.userId;
+        biomedicalWS.registerBiomedicalClient(ws, userId);
       } else if (data.type === 'ping') {
         // Keep-alive ping
         ws.send(JSON.stringify({
@@ -124,6 +138,9 @@ wss.on('connection', (ws, req) => {
     }
     if (ws.pharmacistId) {
       wsManager.unregisterPharmacistClient(ws.pharmacistId, ws);
+    }
+    if (ws.isBiomedical) {
+      biomedicalWS.unregisterBiomedicalClient(ws);
     }
     console.log('🔌 WebSocket connection closed');
   });

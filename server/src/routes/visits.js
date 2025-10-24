@@ -32,7 +32,16 @@ router.get('/patient/:patientId', authMiddleware, async (req, res) => {
 // Create a new visit (patient)
 router.post('/', authMiddleware, roleMiddleware(['patient']), async (req, res) => {
   try {
-    const { visitType, symptoms, description, department = 'OP Nurse' } = req.body;
+    const {
+      visitType,
+      symptoms,
+      description,
+      department = 'OP Nurse',
+      paymentMethod = 'cash',
+      paymentStatus = 'pending',
+      transactionId = null,
+      amount = 200
+    } = req.body;
 
     // Get patient ID from user
     const patient = await Patient.findOne({ userId: req.userId });
@@ -62,6 +71,10 @@ router.post('/', authMiddleware, roleMiddleware(['patient']), async (req, res) =
       symptoms,
       description,
       status: 'pending',
+      paymentMethod,
+      paymentStatus,
+      transactionId,
+      amount,
     });
 
     await visit.save();
@@ -71,12 +84,21 @@ router.post('/', authMiddleware, roleMiddleware(['patient']), async (req, res) =
     patient.hospitalNavigation = hospitalNavigation;
     await patient.save();
 
+    console.log('✅ Visit created with payment:', {
+      visitId: visit._id,
+      paymentMethod,
+      paymentStatus,
+      transactionId,
+      amount,
+    });
+
     res.status(201).json({
       message: 'Visit created successfully',
       visit,
       hospitalNavigation,
     });
   } catch (error) {
+    console.error('❌ Error creating visit:', error);
     res.status(500).json({ message: 'Error creating visit', error });
   }
 });

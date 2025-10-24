@@ -10,6 +10,7 @@ export interface IVitals extends Document {
   heartRate: number;
   respiratoryRate: number;
   pulse: number;
+  triageColor?: string; // Triage color: red, yellow, green, blue
   recordedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +55,11 @@ const vitalsSchema = new Schema<IVitals>(
     pulse: {
       type: Number,
       required: true,
+    },
+    triageColor: {
+      type: String,
+      enum: ['red', 'yellow', 'green', 'blue'],
+      default: null,
     },
     recordedAt: {
       type: Date,
