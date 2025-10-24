@@ -84,6 +84,7 @@ export default function ChatbotModal({ isOpen, onClose, patientId, token }: Chat
     setError("")
 
     try {
+      console.log('📤 Sending message to chatbot:', messageToSend)
       const response = await fetch("http://localhost:5000/api/chatbot/message", {
         method: "POST",
         headers: {
@@ -98,18 +99,22 @@ export default function ChatbotModal({ isOpen, onClose, patientId, token }: Chat
 
       if (response.ok) {
         const data = await response.json()
+        console.log('✅ Received response from chatbot:', data.message)
         const assistantMessage: Message = {
           role: "assistant",
           content: data.message,
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, assistantMessage])
+        setError("")
       } else {
-        setError("Failed to get response from chatbot")
+        const errorData = await response.json()
+        console.error('❌ Chatbot error:', errorData)
+        setError(errorData.error || "Failed to get response from chatbot")
       }
     } catch (err) {
-      setError("Error sending message")
-      console.error(err)
+      console.error('❌ Error sending message:', err)
+      setError("Error sending message. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -122,6 +127,73 @@ export default function ChatbotModal({ isOpen, onClose, patientId, token }: Chat
       advice: "What general health advice can you give me?",
     }
     setInput(prompts[action] || "")
+  }
+
+  const handleAnalyzeSymptoms = async () => {
+    if (!sessionId) return
+
+    // Get all user messages (symptoms)
+    const userMessages = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join(". ")
+
+    if (!userMessages.trim()) {
+      setError("Please describe your symptoms first")
+      return
+    }
+
+    setLoading(true)
+    setError("")
+
+    try {
+      console.log('🔍 Requesting detailed symptom analysis...')
+      console.log('📤 Sending to:', "http://localhost:5000/api/chatbot/analyze-symptoms-detailed")
+      console.log('📋 Symptoms:', userMessages)
+      console.log('🔑 Session ID:', sessionId)
+
+      const response = await fetch("http://localhost:5000/api/chatbot/analyze-symptoms-detailed", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          symptoms: userMessages,
+          sessionId: sessionId,
+        }),
+      })
+
+      console.log('📊 Response status:', response.status)
+      console.log('📊 Response headers:', response.headers)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Symptom analysis received:', data)
+        const analysisMessage: Message = {
+          role: "assistant",
+          content: data.analysis,
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, analysisMessage])
+        setError("")
+      } else {
+        const text = await response.text()
+        console.error('❌ Analysis error - Status:', response.status)
+        console.error('❌ Response text:', text)
+        try {
+          const errorData = JSON.parse(text)
+          setError(errorData.error || "Failed to analyze symptoms")
+        } catch {
+          setError(`Server error: ${response.status} - ${text.substring(0, 100)}`)
+        }
+      }
+    } catch (err) {
+      console.error('❌ Error requesting analysis:', err)
+      setError("Error analyzing symptoms. Please try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSaveSymptoms = async () => {
@@ -191,24 +263,72 @@ export default function ChatbotModal({ isOpen, onClose, patientId, token }: Chat
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
             >
               <div
-                className={`max-w-xs px-4 py-2 rounded-lg ${
+                className={`max-w-sm px-4 py-3 rounded-lg shadow-sm transition-all ${
                   message.role === "user"
-                    ? "bg-blue-600 text-white rounded-br-none"
-                    : "bg-white text-gray-900 border border-gray-200 rounded-bl-none"
+                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-br-none"
+                    : "bg-white text-gray-900 border border-gray-200 rounded-bl-none hover:shadow-md"
                 }`}
               >
-                <p className="text-sm">{message.content}</p>
+                <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                  message.role === "assistant" ? "prose prose-sm max-w-none" : ""
+                }`}>
+                  {message.role === "assistant" ? (
+                    <div className="space-y-2">
+                      {message.content.split('\n').map((line, i) => {
+                        // Bold headers
+                        if (line.startsWith('**') && line.endsWith('**')) {
+                          return (
+                            <p key={i} className="font-bold text-blue-700 mt-2">
+                              {line.replace(/\*\*/g, '')}
+                            </p>
+                          )
+                        }
+                        // List items
+                        if (line.trim().startsWith('-')) {
+                          return (
+                            <p key={i} className="ml-4 text-gray-700">
+                              • {line.replace(/^-\s*/, '')}
+                            </p>
+                          )
+                        }
+                        // Numbered items
+                        if (line.match(/^\d+\./)) {
+                          return (
+                            <p key={i} className="ml-4 text-gray-700">
+                              {line}
+                            </p>
+                          )
+                        }
+                        // Regular text
+                        if (line.trim()) {
+                          return (
+                            <p key={i} className="text-gray-700">
+                              {line}
+                            </p>
+                          )
+                        }
+                        return null
+                      })}
+                    </div>
+                  ) : (
+                    message.content
+                  )}
+                </div>
+                <p className={`text-xs mt-2 ${message.role === "user" ? "text-blue-100" : "text-gray-400"}`}>
+                  {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
               </div>
             </div>
           ))}
 
           {loading && (
             <div className="flex justify-start">
-              <div className="bg-white text-gray-900 border border-gray-200 px-4 py-2 rounded-lg rounded-bl-none">
-                <Loader className="w-4 h-4 animate-spin" />
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 text-gray-900 border border-blue-200 px-4 py-3 rounded-lg rounded-bl-none flex items-center gap-2">
+                <Loader className="w-4 h-4 animate-spin text-blue-600" />
+                <span className="text-sm text-gray-600">AI is thinking...</span>
               </div>
             </div>
           )}
@@ -277,18 +397,30 @@ export default function ChatbotModal({ isOpen, onClose, patientId, token }: Chat
             </Button>
           </div>
 
-          {/* Save Symptoms Button */}
+          {/* Action Buttons */}
           {messages.length > 0 && (
-            <Button
-              type="button"
-              onClick={handleSaveSymptoms}
-              disabled={loading}
-              variant="outline"
-              className="w-full text-xs"
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save Symptoms for Doctor
-            </Button>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                onClick={handleAnalyzeSymptoms}
+                disabled={loading}
+                className="w-full text-xs bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+              >
+                <Stethoscope className="w-3 h-3 mr-1" />
+                🔍 Analyze My Symptoms
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleSaveSymptoms}
+                disabled={loading}
+                variant="outline"
+                className="w-full text-xs"
+              >
+                <Save className="w-3 h-3 mr-1" />
+                💾 Save Symptoms for Doctor
+              </Button>
+            </div>
           )}
         </form>
       </Card>

@@ -11,62 +11,113 @@ You now have a **complete hospital management system** with backend, frontend, a
 ### 1. Open 3 Terminals
 
 **Terminal 1 - Backend:**
+
 ```bash
 cd server
 npm run dev
 ```
+
 ✅ Backend runs on `http://localhost:5000`
 
 **Terminal 2 - Frontend:**
+
 ```bash
 cd client
 npm run dev
 ```
+
 ✅ Frontend runs on `http://localhost:3000`
 
 **Terminal 3 - MongoDB:**
+
 ```bash
 mongod
 ```
+
 ✅ MongoDB runs on `mongodb://localhost:27017`
 
 ### 2. Access Application
+
 Open your browser: `http://localhost:3000`
 
 ### 3. Create Account & Login
+
 - Sign up with any role (patient, doctor, nurse, etc.)
 - Sign in with your credentials
 - Explore the dashboard
 
 ---
 
+## 🎯 NEW: Triage Color Prediction System
+
+### What's New
+
+A complete **triage color prediction system** has been implemented! The system automatically classifies patient priority levels (Red, Yellow, Green, Blue) based on vital signs.
+
+### Quick Test (5 Minutes)
+
+1. Backend is already running ✅
+2. Start frontend: `npm run dev` (in client folder)
+3. Login as Nurse
+4. Scan patient QR code
+5. Enter vitals
+6. Click "🎯 Predict Triage Color"
+7. Select color and submit
+8. Login as Patient to see triage card
+
+### Triage Colors
+
+- 🔴 **Red** = Critical (Immediate)
+- 🟡 **Yellow** = Urgent (30 mins)
+- 🟢 **Green** = Non-Urgent (2 hours)
+- 🔵 **Blue** = Semi-Urgent (1 hour)
+
+### Documentation
+
+- **TRIAGE_QUICK_START.md** - Get started in 5 minutes
+- **TRIAGE_QUICK_TEST.md** - Testing procedures
+- **TRIAGE_TESTING_CHECKLIST.md** - Detailed test cases
+- **TRIAGE_COLOR_IMPLEMENTATION.md** - Technical details
+- **TRIAGE_SYSTEM_SUMMARY.md** - Complete overview
+
+---
+
 ## 📚 Documentation Guide
 
 ### For Quick Reference
+
 👉 **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Commands, URLs, and quick tips
 
 ### For Setup & Installation
+
 👉 **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Complete setup instructions
 
 ### For API Details
+
 👉 **[server/API_DOCUMENTATION.md](./server/API_DOCUMENTATION.md)** - All 31 API endpoints
 
 ### For Database Schema
+
 👉 **[DATA_MODELS.md](./DATA_MODELS.md)** - MongoDB collections and relationships
 
 ### For Project Overview
+
 👉 **[README.md](./README.md)** - Main project overview
 
 ### For Backend Details
+
 👉 **[BACKEND_SETUP_SUMMARY.md](./BACKEND_SETUP_SUMMARY.md)** - Backend architecture
 
 ### For Implementation Status
+
 👉 **[IMPLEMENTATION_COMPLETE.md](./IMPLEMENTATION_COMPLETE.md)** - What was created
 
 ### For Project Summary
+
 👉 **[PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)** - Complete project overview
 
 ### For Final Summary
+
 👉 **[FINAL_SUMMARY.txt](./FINAL_SUMMARY.txt)** - Visual summary
 
 ---
@@ -74,6 +125,7 @@ Open your browser: `http://localhost:3000`
 ## 🎯 What You Have
 
 ### ✅ Backend (Node.js/Express)
+
 - 31 API endpoints
 - JWT authentication
 - Role-based access control
@@ -81,6 +133,7 @@ Open your browser: `http://localhost:3000`
 - TypeScript for type safety
 
 ### ✅ Frontend (Next.js/React)
+
 - Multi-role dashboards
 - Responsive design
 - Tailwind CSS styling
@@ -88,12 +141,14 @@ Open your browser: `http://localhost:3000`
 - Multi-language support
 
 ### ✅ Database (MongoDB)
+
 - 11 collections
 - Complete data models
 - Relationships configured
 - Indexes for performance
 
 ### ✅ Documentation
+
 - 8 comprehensive guides
 - API reference
 - Setup instructions
@@ -103,24 +158,24 @@ Open your browser: `http://localhost:3000`
 
 ## 🚀 What's Running Now
 
-| Service | Status | Port | URL |
-|---------|--------|------|-----|
-| Backend | ✅ Running | 5000 | http://localhost:5000 |
-| Frontend | ✅ Running | 3000 | http://localhost:3000 |
-| MongoDB | ⚠️ Awaiting | 27017 | mongodb://localhost:27017 |
+| Service  | Status      | Port  | URL                       |
+| -------- | ----------- | ----- | ------------------------- |
+| Backend  | ✅ Running  | 5000  | http://localhost:5000     |
+| Frontend | ✅ Running  | 3000  | http://localhost:3000     |
+| MongoDB  | ⚠️ Awaiting | 27017 | mongodb://localhost:27017 |
 
 ---
 
 ## 👥 User Roles
 
-| Role | Can Do |
-|------|--------|
-| **Patient** | View own medical records, vitals, prescriptions |
-| **Doctor** | View patients, create prescriptions |
-| **Nurse** | Record patient vitals |
-| **Pharmacist** | Manage medicine inventory |
-| **Lab Technician** | Manage lab tests |
-| **Admin** | Full system access |
+| Role               | Can Do                                          |
+| ------------------ | ----------------------------------------------- |
+| **Patient**        | View own medical records, vitals, prescriptions |
+| **Doctor**         | View patients, create prescriptions             |
+| **Nurse**          | Record patient vitals                           |
+| **Pharmacist**     | Manage medicine inventory                       |
+| **Lab Technician** | Manage lab tests                                |
+| **Admin**          | Full system access                              |
 
 ---
 
@@ -140,10 +195,12 @@ Open your browser: `http://localhost:3000`
 ## 🔌 API Endpoints (31 Total)
 
 ### Authentication (2)
+
 - POST /api/auth/signup
 - POST /api/auth/signin
 
 ### Patients (6)
+
 - GET /api/patients
 - GET /api/patients/:id
 - PUT /api/patients/:id
@@ -152,6 +209,7 @@ Open your browser: `http://localhost:3000`
 - GET /api/patients/:id/lab-tests
 
 ### Doctors (5)
+
 - GET /api/doctors
 - GET /api/doctors/:id
 - PUT /api/doctors/:id
@@ -159,18 +217,21 @@ Open your browser: `http://localhost:3000`
 - GET /api/doctors/:id/prescriptions
 
 ### Prescriptions (4)
+
 - GET /api/prescriptions
 - GET /api/prescriptions/:id
 - PUT /api/prescriptions/:id
 - DELETE /api/prescriptions/:id
 
 ### Vitals (4)
+
 - GET /api/vitals
 - POST /api/vitals
 - GET /api/vitals/:id
 - PUT /api/vitals/:id
 
 ### Medicines (5)
+
 - GET /api/medicines
 - POST /api/medicines
 - GET /api/medicines/:id
@@ -178,6 +239,7 @@ Open your browser: `http://localhost:3000`
 - DELETE /api/medicines/:id
 
 ### Lab Tests (4)
+
 - GET /api/lab-tests
 - POST /api/lab-tests
 - GET /api/lab-tests/:id
@@ -188,6 +250,7 @@ Open your browser: `http://localhost:3000`
 ## 🛠️ Common Commands
 
 ### Backend
+
 ```bash
 cd server
 npm run dev              # Start development server
@@ -196,6 +259,7 @@ npm start               # Run production build
 ```
 
 ### Frontend
+
 ```bash
 cd client
 npm run dev             # Start development server
@@ -208,16 +272,19 @@ npm start               # Run production build
 ## 🐛 Troubleshooting
 
 ### Backend won't start?
+
 - Check if port 5000 is available
 - Ensure Node.js is installed
 - Check for errors in terminal
 
 ### Frontend won't connect?
+
 - Verify backend is running on port 5000
 - Check browser console for errors
 - Clear browser cache
 
 ### MongoDB connection error?
+
 - Start MongoDB: `mongod`
 - Check connection string in `server/.env`
 - Verify MongoDB is running
@@ -308,4 +375,3 @@ Everything is ready to go. Just:
 **Created**: October 23, 2024
 
 **Happy coding! 🎉**
-

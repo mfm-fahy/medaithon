@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, CheckCircle, MapPin, Clock, DoorOpen } from "lucide-react"
+import PaymentModal from "./payment-modal"
 
 interface VisitFormProps {
   patientId: string
@@ -31,14 +32,17 @@ export default function VisitForm({ patientId, onSuccess }: VisitFormProps) {
   const [success, setSuccess] = useState(false)
   const [hospitalNavigation, setHospitalNavigation] = useState<HospitalNavigation | null>(null)
   const [ws, setWs] = useState<WebSocket | null>(null)
+  const [showPayment, setShowPayment] = useState(false)
+  const [paymentData, setPaymentData] = useState<{ method: string; transactionId: string } | null>(null)
+  const [pendingVisitData, setPendingVisitData] = useState<any>(null)
 
-  // Setup WebSocket connection
+  // Setup WebSocket connection (optional - for real-time updates)
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//localhost:5000`
 
     try {
-      console.log('🔌 Connecting to WebSocket:', wsUrl)
+      console.log('🔌 Attempting WebSocket connection:', wsUrl)
       const websocket = new WebSocket(wsUrl)
 
       websocket.onopen = () => {
@@ -51,28 +55,40 @@ export default function VisitForm({ patientId, onSuccess }: VisitFormProps) {
       }
 
       websocket.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        if (data.type === 'navigation-update') {
-          setHospitalNavigation(data.data)
-        } else if (data.type === 'wait-time-update') {
-          setHospitalNavigation(prev => prev ? {
-            ...prev,
-            estimatedWaitTime: data.estimatedWaitTime,
-          } : null)
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'navigation-update') {
+            setHospitalNavigation(data.data)
+          } else if (data.type === 'wait-time-update') {
+            setHospitalNavigation(prev => prev ? {
+              ...prev,
+              estimatedWaitTime: data.estimatedWaitTime,
+            } : null)
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse WebSocket message:', parseError)
         }
       }
 
       websocket.onerror = (error) => {
-        console.error('WebSocket error:', error)
+        console.warn('⚠️ WebSocket error (non-critical):', error)
+        // WebSocket errors are non-critical - payment flow still works
+      }
+
+      websocket.onclose = () => {
+        console.log('ℹ️ WebSocket closed')
       }
 
       setWs(websocket)
 
       return () => {
-        websocket.close()
+        if (websocket.readyState === WebSocket.OPEN) {
+          websocket.close()
+        }
       }
     } catch (error) {
-      console.error('Failed to connect WebSocket:', error)
+      console.warn('⚠️ Failed to connect WebSocket (non-critical):', error)
+      // WebSocket connection failure is non-critical - payment flow still works
     }
   }, [patientId])
 
@@ -92,6 +108,18 @@ export default function VisitForm({ patientId, onSuccess }: VisitFormProps) {
       return
     }
 
+    // Store visit data and show payment modal
+    setPendingVisitData({
+      visitType,
+      symptoms,
+      description,
+      department,
+    })
+    setShowPayment(true)
+  }
+
+  const handlePaymentComplete = async (paymentMethod: string, transactionId: string) => {
+    setShowPayment(false)
     setLoading(true)
 
     try {
@@ -109,10 +137,11 @@ export default function VisitForm({ patientId, onSuccess }: VisitFormProps) {
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
-          visitType,
-          symptoms,
-          description,
-          department,
+          ...pendingVisitData,
+          paymentMethod,
+          transactionId,
+          paymentStatus: paymentMethod === "cash" ? "pending" : "completed",
+          amount: 200,
         }),
       })
 
@@ -128,10 +157,12 @@ export default function VisitForm({ patientId, onSuccess }: VisitFormProps) {
         setHospitalNavigation(responseData.hospitalNavigation)
       }
 
+      setPaymentData({ method: paymentMethod, transactionId })
       setSuccess(true)
       setVisitType("")
       setSymptoms("")
       setDescription("")
+      setPendingVisitData(null)
 
       // Call onSuccess callback immediately to update navigation
       if (onSuccess) {
@@ -145,6 +176,7 @@ export default function VisitForm({ patientId, onSuccess }: VisitFormProps) {
       }, 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
+      setPendingVisitData(null)
     } finally {
       setLoading(false)
     }
@@ -336,6 +368,17 @@ export default function VisitForm({ patientId, onSuccess }: VisitFormProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPayment}
+        amount={200}
+        onPaymentComplete={handlePaymentComplete}
+        onClose={() => {
+          setShowPayment(false)
+          setPendingVisitData(null)
+        }}
+      />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import QRScanner from "@/components/qr-scanner"
+import PaymentInfoCard from "@/components/nurse/payment-info-card"
 import { AlertCircle, CheckCircle, Loader } from "lucide-react"
 
 interface Patient {
@@ -17,6 +18,13 @@ interface Patient {
   phone: string
   medicalHistory?: string
   allergies?: string[]
+  currentVisit?: {
+    _id: string
+    paymentMethod?: string
+    paymentStatus?: string
+    transactionId?: string
+    amount?: number
+  }
 }
 
 export default function NursePatients() {
@@ -267,63 +275,77 @@ function NursePatientDetailsCard({ patient, onUpdate }: { patient: Patient; onUp
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Patient Details</CardTitle>
-        <CardDescription>View and update patient information</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Patient Info */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-gray-600">Name</p>
-            <p className="font-medium">{patient.userId?.name || "N/A"}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Patient ID</p>
-            <p className="font-medium">{patient.patientId}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Age</p>
-            <p className="font-medium">{patient.age}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Sex</p>
-            <p className="font-medium capitalize">{patient.sex}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Phone</p>
-            <p className="font-medium">{patient.phone}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Email</p>
-            <p className="font-medium">{patient.userId?.email || "N/A"}</p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Payment Information Card */}
+      {patient.currentVisit && (
+        <PaymentInfoCard
+          visitId={patient.currentVisit._id}
+          paymentMethod={patient.currentVisit.paymentMethod}
+          paymentStatus={patient.currentVisit.paymentStatus}
+          transactionId={patient.currentVisit.transactionId}
+          amount={patient.currentVisit.amount}
+        />
+      )}
 
-        {/* Update Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 border-t pt-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Medical History / Notes</label>
-            <textarea
-              value={medicalHistory}
-              onChange={(e) => setMedicalHistory(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-24"
-              placeholder="Add nursing notes and observations..."
+      {/* Patient Details Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Patient Details</CardTitle>
+          <CardDescription>View and update patient information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Patient Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">Name</p>
+              <p className="font-medium">{patient.userId?.name || "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Patient ID</p>
+              <p className="font-medium">{patient.patientId}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Age</p>
+              <p className="font-medium">{patient.age}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Sex</p>
+              <p className="font-medium capitalize">{patient.sex}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Phone</p>
+              <p className="font-medium">{patient.phone}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Email</p>
+              <p className="font-medium">{patient.userId?.email || "N/A"}</p>
+            </div>
+          </div>
+
+          {/* Update Form */}
+          <form onSubmit={handleSubmit} className="space-y-4 border-t pt-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Medical History / Notes</label>
+              <textarea
+                value={medicalHistory}
+                onChange={(e) => setMedicalHistory(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-24"
+                placeholder="Add nursing notes and observations..."
+                disabled={updating}
+              />
+            </div>
+
+            <Button
+              type="submit"
               disabled={updating}
-            />
-          </div>
-
-          <Button
-            type="submit"
-            disabled={updating}
-            className="w-full bg-blue-600 hover:bg-blue-700"
-          >
-            {updating ? "Updating..." : "Update Patient"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {updating ? "Updating..." : "Update Patient"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

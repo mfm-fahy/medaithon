@@ -87,6 +87,9 @@ export default function NurseVitalsPage() {
     respiratoryRate: "",
     pulse: "",
   })
+  const [predictedTriageColor, setPredictedTriageColor] = useState<string | null>(null)
+  const [selectedTriageColor, setSelectedTriageColor] = useState<string | null>(null)
+  const [predictingTriage, setPredictingTriage] = useState(false)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -133,6 +136,50 @@ export default function NurseVitalsPage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const predictTriageColor = async () => {
+    if (!formData.height || !formData.weight || !formData.temperature || !formData.bloodPressure ||
+        !formData.heartRate || !formData.respiratoryRate || !formData.pulse) {
+      setError("Please fill in all vital fields before predicting triage color")
+      return
+    }
+
+    setPredictingTriage(true)
+    setError("")
+    try {
+      const token = localStorage.getItem("auth_token")
+      console.log("🔵 Predicting triage color...")
+
+      const response = await fetch("http://localhost:5000/api/vitals/predict-triage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          height: parseFloat(formData.height),
+          weight: parseFloat(formData.weight),
+          temperature: parseFloat(formData.temperature),
+          bloodPressure: formData.bloodPressure,
+          heartRate: parseFloat(formData.heartRate),
+          respiratoryRate: parseFloat(formData.respiratoryRate),
+          pulse: parseFloat(formData.pulse),
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to predict triage color")
+
+      const data = await response.json()
+      console.log("✅ Triage color predicted:", data.triageColor)
+      setPredictedTriageColor(data.triageColor)
+      setSelectedTriageColor(data.triageColor)
+    } catch (err) {
+      console.error("❌ Error predicting triage color:", err)
+      setError(err instanceof Error ? err.message : "Error predicting triage color")
+    } finally {
+      setPredictingTriage(false)
+    }
+  }
+
   const handleSubmitVitals = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
@@ -158,6 +205,7 @@ export default function NurseVitalsPage() {
           heartRate: parseFloat(formData.heartRate),
           respiratoryRate: parseFloat(formData.respiratoryRate),
           pulse: parseFloat(formData.pulse),
+          triageColor: selectedTriageColor,
         }),
       })
 
@@ -165,7 +213,7 @@ export default function NurseVitalsPage() {
 
       const data = await response.json()
       console.log("✅ Vitals submitted successfully:", data)
-      setSuccess("Vitals recorded successfully!")
+      setSuccess(`Vitals recorded successfully! Triage Color: ${selectedTriageColor?.toUpperCase()}`)
       setFormData({
         height: "",
         weight: "",
@@ -175,6 +223,8 @@ export default function NurseVitalsPage() {
         respiratoryRate: "",
         pulse: "",
       })
+      setPredictedTriageColor(null)
+      setSelectedTriageColor(null)
       // Refresh vitals list
       fetchPatientData()
     } catch (err) {
@@ -379,9 +429,64 @@ export default function NurseVitalsPage() {
                       </div>
                     </div>
 
+                    {/* Triage Color Prediction */}
+                    <div className="border-t pt-4">
+                      <div className="flex gap-2 mb-4">
+                        <Button
+                          type="button"
+                          onClick={predictTriageColor}
+                          disabled={predictingTriage}
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                        >
+                          {predictingTriage ? (
+                            <>
+                              <Loader className="w-4 h-4 mr-2 animate-spin" />
+                              Predicting...
+                            </>
+                          ) : (
+                            "🎯 Predict Triage Color"
+                          )}
+                        </Button>
+                      </div>
+
+                      {predictedTriageColor && (
+                        <div className="mb-4 p-4 rounded-lg border-2 bg-gray-50">
+                          <p className="text-sm font-medium text-gray-700 mb-3">Predicted Triage Color:</p>
+                          <div className="flex gap-2 flex-wrap">
+                            {["red", "yellow", "green", "blue"].map((color) => (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => setSelectedTriageColor(color)}
+                                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                                  selectedTriageColor === color
+                                    ? "ring-2 ring-offset-2 ring-gray-400 scale-105"
+                                    : "opacity-70 hover:opacity-100"
+                                } ${
+                                  color === "red"
+                                    ? "bg-red-500 text-white"
+                                    : color === "yellow"
+                                    ? "bg-yellow-400 text-gray-900"
+                                    : color === "green"
+                                    ? "bg-green-500 text-white"
+                                    : "bg-blue-500 text-white"
+                                }`}
+                              >
+                                {color.charAt(0).toUpperCase() + color.slice(1)}
+                                {predictedTriageColor === color && " ✓"}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2">
+                            Selected: <strong>{selectedTriageColor?.toUpperCase()}</strong>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     <Button
                       type="submit"
-                      disabled={submitting}
+                      disabled={submitting || !selectedTriageColor}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       {submitting ? "Recording..." : "Record Vitals"}

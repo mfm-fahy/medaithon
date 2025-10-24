@@ -151,13 +151,31 @@ export default function PatientQueuePage() {
       }
     }
 
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error)
+    ws.onerror = (event) => {
+      console.error("❌ WebSocket error occurred")
+      console.error("📊 Error details:", {
+        type: event.type,
+        message: event.message,
+        timestamp: new Date().toISOString(),
+        readyState: ws.readyState,
+        url: ws.url
+      })
+      console.warn("⚠️ WebSocket connection failed. Possible causes:")
+      console.warn("1. Server not running on port 5000")
+      console.warn("2. Firewall or proxy blocking connection")
+      console.warn("3. Network connectivity issue")
+      console.warn("4. CORS or protocol mismatch")
       setWsConnected(false)
     }
 
-    ws.onclose = () => {
-      console.log("WebSocket disconnected")
+    ws.onclose = (event) => {
+      console.log("❌ WebSocket disconnected")
+      console.log("📊 Close details:", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        timestamp: new Date().toISOString()
+      })
       setWsConnected(false)
     }
 

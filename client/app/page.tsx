@@ -25,6 +25,20 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Biomedical App */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-blue-400"
+            onClick={() => router.push("/biomedical/login")}
+          >
+            <CardHeader>
+              <CardTitle className="text-2xl">🏥 Biomedical</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>Equipment & Waste Management</CardDescription>
+              <Button className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">{t("submit")}</Button>
+            </CardContent>
+          </Card>
+
           {/* Patient */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer"

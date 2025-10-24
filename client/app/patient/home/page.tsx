@@ -15,12 +15,44 @@ export default function PatientHome() {
   const router = useRouter()
   const { user, isAuthenticated, loading } = useAuth()
   const [visitScheduled, setVisitScheduled] = useState(false)
+  const [latestTriageColor, setLatestTriageColor] = useState<string | null>(null)
+  const [loadingTriage, setLoadingTriage] = useState(false)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/patient/signin")
     }
   }, [isAuthenticated, loading, router])
+
+  useEffect(() => {
+    if (isAuthenticated && (user as any)?.patientId) {
+      fetchLatestTriageColor()
+    }
+  }, [isAuthenticated, user])
+
+  const fetchLatestTriageColor = async () => {
+    setLoadingTriage(true)
+    try {
+      const token = localStorage.getItem("auth_token")
+      const response = await fetch(`http://localhost:5000/api/patients/${(user as any)?.patientId}/vitals`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const vitals = await response.json()
+        if (vitals.length > 0) {
+          const latest = vitals[0]
+          setLatestTriageColor(latest.triageColor || null)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching triage color:", error)
+    } finally {
+      setLoadingTriage(false)
+    }
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
@@ -112,6 +144,52 @@ export default function PatientHome() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Triage Status Card */}
+        {latestTriageColor && (
+          <div className="mb-8">
+            <Card className="border-2 border-gray-300">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  🎯 Your Triage Status
+                </CardTitle>
+                <CardDescription>Latest vital assessment</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-xl ${
+                      latestTriageColor === "red"
+                        ? "bg-red-500"
+                        : latestTriageColor === "yellow"
+                        ? "bg-yellow-400 text-gray-900"
+                        : latestTriageColor === "green"
+                        ? "bg-green-500"
+                        : "bg-blue-500"
+                    }`}
+                  >
+                    {latestTriageColor.toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 mb-2">Priority Level:</p>
+                    <p className="text-lg font-semibold">
+                      {latestTriageColor === "red"
+                        ? "🔴 Critical - Immediate Attention"
+                        : latestTriageColor === "yellow"
+                        ? "🟡 Urgent - High Priority"
+                        : latestTriageColor === "green"
+                        ? "🟢 Non-Urgent - Routine Care"
+                        : "🔵 Semi-Urgent - Moderate Priority"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Based on your latest vital signs recorded by the nurse
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Visit Form Section */}
         <div className="mb-8">
