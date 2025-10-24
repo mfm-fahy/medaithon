@@ -15,6 +15,8 @@ const vitalsRoutes = require('./routes/vitals');
 const medicineRoutes = require('./routes/medicines');
 const labTestRoutes = require('./routes/lab-tests');
 const visitsRoutes = require('./routes/visits');
+const injectionsRoutes = require('./routes/injections');
+const chatbotRoutes = require('./routes/chatbot');
 
 const app = express();
 const server = http.createServer(app);
@@ -38,6 +40,8 @@ app.use('/api/vitals', vitalsRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/lab-tests', labTestRoutes);
 app.use('/api/visits', visitsRoutes);
+app.use('/api/injections', injectionsRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -45,8 +49,38 @@ app.get('/health', (req, res) => {
 });
 
 // WebSocket connection handling
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   console.log('🔌 New WebSocket connection');
+
+  // Extract query parameters from URL
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const patientId = url.searchParams.get('patientId');
+  const doctorId = url.searchParams.get('doctorId');
+  const pharmacistId = url.searchParams.get('pharmacistId');
+
+  // Register doctor if doctorId is provided
+  if (doctorId) {
+    console.log('👨‍⚕️  Doctor connected:', doctorId);
+    wsManager.registerDoctorClient(doctorId, ws);
+    ws.doctorId = doctorId;
+    ws.send(JSON.stringify({
+      type: 'doctor-registered',
+      message: `Successfully registered for doctor ${doctorId}`,
+      timestamp: new Date(),
+    }));
+  }
+
+  // Register pharmacist if pharmacistId is provided
+  if (pharmacistId) {
+    console.log('💊 Pharmacist connected:', pharmacistId);
+    wsManager.registerPharmacistClient(pharmacistId, ws);
+    ws.pharmacistId = pharmacistId;
+    ws.send(JSON.stringify({
+      type: 'pharmacist-registered',
+      message: `Successfully registered for pharmacist ${pharmacistId}`,
+      timestamp: new Date(),
+    }));
+  }
 
   ws.on('message', (message) => {
     try {
@@ -78,6 +112,12 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     if (ws.patientId) {
       wsManager.unregisterClient(ws.patientId, ws);
+    }
+    if (ws.doctorId) {
+      wsManager.unregisterDoctorClient(ws.doctorId, ws);
+    }
+    if (ws.pharmacistId) {
+      wsManager.unregisterPharmacistClient(ws.pharmacistId, ws);
     }
     console.log('🔌 WebSocket connection closed');
   });

@@ -8,7 +8,7 @@ import { AuthRequest, authMiddleware, roleMiddleware } from '../middleware/auth'
 const router = express.Router();
 
 // Get all patients
-router.get('/', authMiddleware, roleMiddleware(['admin', 'doctor', 'nurse']), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', authMiddleware, roleMiddleware(['admin', 'doctor', 'nurse', 'pharmacist']), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const patients = await Patient.find().populate('userId', 'username email name');
     res.json(patients);

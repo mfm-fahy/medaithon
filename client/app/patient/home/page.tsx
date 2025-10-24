@@ -9,6 +9,7 @@ import PatientHeader from "@/components/patient/patient-header"
 import PatientNavigation from "@/components/patient/patient-navigation"
 import QRCodeDisplay from "@/components/patient/qr-code-display"
 import VisitForm from "@/components/patient/visit-form"
+import ChatbotFloatingButton from "@/components/patient/chatbot-floating-button"
 
 export default function PatientHome() {
   const router = useRouter()
@@ -33,6 +34,14 @@ export default function PatientHome() {
     <div className="min-h-screen bg-gray-50">
       <PatientHeader user={user} />
 
+      {/* Chatbot Floating Button */}
+      {(user as any)?.patientId && (
+        <ChatbotFloatingButton
+          patientId={(user as any).patientId}
+          token={localStorage.getItem("auth_token") || ""}
+        />
+      )}
+
       <main className="max-w-6xl mx-auto p-4 md:p-6">
         {/* QR Code Section */}
         {(user as any)?.patientId && (
@@ -49,6 +58,12 @@ export default function PatientHome() {
               <CardDescription>Access your medical information</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-4">
+              <Button
+                onClick={() => router.push("/patient/queue")}
+                className="bg-blue-600 hover:bg-blue-700 h-20 text-base"
+              >
+                Queue Status
+              </Button>
               <Button
                 onClick={() => router.push("/patient/appointments")}
                 className="bg-green-600 hover:bg-green-700 h-20 text-base"

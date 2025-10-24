@@ -17,6 +17,13 @@ interface Patient {
   phone: string
 }
 
+interface Doctor {
+  _id: string
+  userId: { name: string; email: string }
+  specialization: string
+  designation: string
+}
+
 const DOCTOR_CATEGORIES = [
   { name: "General Medicine", icon: "🏥", floor: "Ground Floor" },
   { name: "Cardiology", icon: "❤️", floor: "1st Floor" },
@@ -36,8 +43,11 @@ function AssignDoctorContent() {
 
   const [patient, setPatient] = useState<Patient | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>("")
+  const [selectedDoctor, setSelectedDoctor] = useState<string>("")
+  const [availableDoctors, setAvailableDoctors] = useState<Doctor[]>([])
   const [roomNumber, setRoomNumber] = useState<string>("")
   const [loadingData, setLoadingData] = useState(false)
+  const [loadingDoctors, setLoadingDoctors] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -99,14 +109,44 @@ function AssignDoctorContent() {
     }
   }
 
+  const fetchDoctorsBySpecialization = async (specialization: string) => {
+    setLoadingDoctors(true)
+    setError("")
+    setSelectedDoctor("")
+    try {
+      const token = localStorage.getItem("auth_token")
+      console.log("🔵 Fetching doctors for specialization:", specialization)
+
+      const response = await fetch(`http://localhost:5000/api/doctors?specialization=${encodeURIComponent(specialization)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch doctors")
+      }
+
+      const data = await response.json()
+      console.log("✅ Doctors fetched:", data.doctors)
+      setAvailableDoctors(data.doctors || [])
+    } catch (err) {
+      console.error("❌ Error fetching doctors:", err)
+      setError(err instanceof Error ? err.message : "Error fetching doctors")
+      setAvailableDoctors([])
+    } finally {
+      setLoadingDoctors(false)
+    }
+  }
+
   const handleAssignDoctor = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
     setError("")
     setSuccess("")
 
-    if (!selectedCategory || !roomNumber) {
-      setError("Please select a doctor category and enter a room number")
+    if (!selectedCategory || !selectedDoctor || !roomNumber) {
+      setError("Please select a doctor category, choose a doctor, and enter a room number")
       setSubmitting(false)
       return
     }
@@ -114,9 +154,12 @@ function AssignDoctorContent() {
     try {
       const token = localStorage.getItem("auth_token")
       const selectedDept = DOCTOR_CATEGORIES.find(d => d.name === selectedCategory)
+      const doctor = availableDoctors.find(d => d._id === selectedDoctor)
 
       console.log("🔵 Assigning doctor to patient:", {
         patientId,
+        doctorId: selectedDoctor,
+        doctorName: doctor?.userId?.name,
         doctorCategory: selectedCategory,
         roomNumber,
       })
@@ -128,6 +171,8 @@ function AssignDoctorContent() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          doctorId: selectedDoctor,
+          doctorName: doctor?.userId?.name,
           doctorCategory: selectedCategory,
           roomNumber,
           floor: selectedDept?.floor || "Ground Floor",
@@ -150,7 +195,7 @@ function AssignDoctorContent() {
 
       const data = await response.json()
       console.log("✅ Doctor assigned successfully:", data)
-      setSuccess(`Patient assigned to ${selectedCategory} - Room ${roomNumber}`)
+      setSuccess(`Patient assigned to ${doctor?.userId?.name} (${selectedCategory}) - Room ${roomNumber}`)
 
       // Redirect back to vitals page after 2 seconds
       setTimeout(() => {
@@ -261,7 +306,10 @@ function AssignDoctorContent() {
                       <button
                         key={category.name}
                         type="button"
-                        onClick={() => setSelectedCategory(category.name)}
+                        onClick={() => {
+                          setSelectedCategory(category.name)
+                          fetchDoctorsBySpecialization(category.name)
+                        }}
                         className={`p-4 rounded-lg border-2 transition-all text-center ${
                           selectedCategory === category.name
                             ? "border-blue-600 bg-blue-50"
@@ -274,6 +322,35 @@ function AssignDoctorContent() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Doctor Selection */}
+                  {selectedCategory && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Select Doctor</label>
+                      {loadingDoctors ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader className="w-5 h-5 animate-spin text-blue-600 mr-2" />
+                          <p className="text-sm text-gray-600">Loading doctors...</p>
+                        </div>
+                      ) : availableDoctors.length === 0 ? (
+                        <p className="text-sm text-red-600">No doctors available for this specialization</p>
+                      ) : (
+                        <select
+                          value={selectedDoctor}
+                          onChange={(e) => setSelectedDoctor(e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="">Choose a doctor...</option>
+                          {availableDoctors.map((doctor) => (
+                            <option key={doctor._id} value={doctor._id}>
+                              {doctor.userId?.name} - {doctor.designation}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
 
                   {/* Room Number Input */}
                   <div>
@@ -292,7 +369,7 @@ function AssignDoctorContent() {
                   {/* Submit Button */}
                   <Button
                     type="submit"
-                    disabled={submitting || !selectedCategory || !roomNumber}
+                    disabled={submitting || !selectedCategory || !selectedDoctor || !roomNumber}
                     className="w-full bg-blue-600 hover:bg-blue-700"
                   >
                     {submitting ? "Assigning..." : "Assign Doctor & Update Navigation"}

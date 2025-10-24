@@ -31,6 +31,24 @@ const visitSchema = new mongoose.Schema(
     notes: {
       type: String,
     },
+    // New fields for doctor's examination
+    diagnosis: {
+      type: String,
+    },
+    advice: {
+      type: String,
+    },
+    remarks: {
+      type: String,
+    },
+    vitals: {
+      height: String,
+      weight: String,
+      temperature: String,
+      bloodPressure: String,
+      heartRate: String,
+      respiratoryRate: String,
+    },
   },
   { timestamps: true }
 );

@@ -3,6 +3,8 @@ const { Patient } = require('../models/Patient');
 const { Vitals } = require('../models/Vitals');
 const { Prescription } = require('../models/Prescription');
 const { LabTest } = require('../models/LabTest');
+const { Injection } = require('../models/Injection');
+const { Visit } = require('../models/Visit');
 const { authMiddleware, roleMiddleware } = require('../middleware/auth');
 const wsManager = require('../services/websocket');
 
@@ -20,6 +22,26 @@ router.get('/debug/all', async (req, res) => {
     res.json({ patients });
   } catch (error) {
     console.error('❌ Error fetching all patients:', error);
+    res.status(500).json({ message: 'Error fetching patients', error });
+  }
+});
+
+// Get patients assigned to a specific doctor
+router.get('/doctor/:doctorId', authMiddleware, roleMiddleware(['doctor', 'admin']), async (req, res) => {
+  try {
+    console.log('🔵 Fetching patients for doctor:', req.params.doctorId);
+
+    const patients = await Patient.find({
+      'assignedDoctor.doctorId': req.params.doctorId,
+      inQueue: true,
+    })
+      .populate('userId', 'username email name')
+      .sort({ queuePosition: 1 });
+
+    console.log('📝 Patients found:', patients.length);
+    res.json({ patients });
+  } catch (error) {
+    console.error('❌ Error fetching patients for doctor:', error);
     res.status(500).json({ message: 'Error fetching patients', error });
   }
 });
@@ -101,7 +123,7 @@ router.put('/qr/:patientId', authMiddleware, roleMiddleware(['doctor', 'nurse', 
 // Update patient navigation with doctor category and room (nurse only)
 router.put('/navigation/:patientId', authMiddleware, roleMiddleware(['nurse', 'admin']), async (req, res) => {
   try {
-    const { doctorCategory, roomNumber, floor, department } = req.body;
+    const { doctorCategory, roomNumber, floor, department, doctorId, doctorName } = req.body;
     const patientId = req.params.patientId;
 
     console.log('🔵 Updating patient navigation:', {
@@ -110,6 +132,8 @@ router.put('/navigation/:patientId', authMiddleware, roleMiddleware(['nurse', 'a
       roomNumber,
       floor,
       department,
+      doctorId,
+      doctorName,
     });
 
     const patient = await Patient.findOne({ patientId });
@@ -130,6 +154,21 @@ router.put('/navigation/:patientId', authMiddleware, roleMiddleware(['nurse', 'a
       lastUpdated: new Date(),
     };
 
+    // Assign doctor and add to queue
+    if (doctorId) {
+      patient.assignedDoctor = {
+        doctorId: doctorId,
+        doctorName: doctorName || 'Doctor',
+        specialization: doctorCategory || department,
+        roomNumber: roomNumber,
+        floor: floor,
+        assignedAt: new Date(),
+      };
+      patient.inQueue = true;
+      patient.queuePosition = 1; // Will be updated when other patients are added
+      console.log('👨‍⚕️  Doctor assigned:', doctorName, 'Specialization:', doctorCategory);
+    }
+
     await patient.save();
     console.log('✅ Patient navigation updated successfully');
 
@@ -137,6 +176,22 @@ router.put('/navigation/:patientId', authMiddleware, roleMiddleware(['nurse', 'a
     console.log('🔌 Sending WebSocket update to patient:', patientId);
     wsManager.sendNavigationUpdate(patientId, patient.hospitalNavigation);
     wsManager.storeNavigationUpdate(patientId, patient.hospitalNavigation);
+
+    // Broadcast to doctor's dashboard if doctor is assigned
+    if (doctorId) {
+      console.log('🔌 Broadcasting to doctor dashboard:', doctorId);
+      wsManager.broadcastToDoctorQueue(doctorId, {
+        type: 'patient-added-to-queue',
+        patient: {
+          _id: patient._id,
+          patientId: patient.patientId,
+          name: patient.userId?.name,
+          age: patient.age,
+          sex: patient.sex,
+          queuePosition: patient.queuePosition,
+        },
+      });
+    }
 
     res.json({
       message: 'Patient navigation updated successfully',
@@ -154,7 +209,7 @@ router.put('/navigation/:patientId', authMiddleware, roleMiddleware(['nurse', 'a
 // ============================================
 
 // Get all patients
-router.get('/', authMiddleware, roleMiddleware(['admin', 'doctor', 'nurse']), async (req, res) => {
+router.get('/', authMiddleware, roleMiddleware(['admin', 'doctor', 'nurse', 'pharmacist']), async (req, res) => {
   try {
     const patients = await Patient.find().populate('userId', 'username email name');
     res.json(patients);
@@ -163,7 +218,7 @@ router.get('/', authMiddleware, roleMiddleware(['admin', 'doctor', 'nurse']), as
   }
 });
 
-// Get patient by ID
+// Get patient by ID with all related data (prescriptions, lab tests, injections, visits)
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id).populate('userId', 'username email name');
@@ -171,7 +226,22 @@ router.get('/:id', authMiddleware, async (req, res) => {
       res.status(404).json({ message: 'Patient not found' });
       return;
     }
-    res.json(patient);
+
+    // Get related data
+    const prescriptions = await Prescription.find({ patientId: req.params.id }).sort({ createdAt: -1 });
+    const labTests = await LabTest.find({ patientId: req.params.id }).sort({ createdAt: -1 });
+    const injections = await Injection.find({ patientId: req.params.id }).sort({ createdAt: -1 });
+    const visits = await Visit.find({ patientId: req.params.id }).sort({ createdAt: -1 });
+    const vitals = await Vitals.find({ patientId: req.params.id }).sort({ createdAt: -1 });
+
+    res.json({
+      patient,
+      prescriptions,
+      labTests,
+      injections,
+      visits,
+      vitals,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching patient', error });
   }
@@ -236,6 +306,7 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
       injectionDetails,
       needsLabTest,
       labTestDetails,
+      vitals,
     } = req.body;
 
     console.log('🔵 Saving patient record for:', patientId);
@@ -247,6 +318,9 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
       res.status(404).json({ message: 'Patient not found' });
       return;
     }
+
+    // Get doctor ID from auth
+    const doctorId = req.userId;
 
     // Helper function to generate random room number
     const generateRandomRoom = () => {
@@ -262,8 +336,26 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
     patient.advice = advice;
     patient.prescribedMedicines = medicines.filter((m) => m.medicine && m.medicine.trim());
 
+    // Save prescriptions to Prescription collection
+    const validMedicines = medicines.filter((m) => m.medicine && m.medicine.trim());
+    for (const medicine of validMedicines) {
+      const prescription = new Prescription({
+        patientId: patient._id,
+        doctorId: doctorId,
+        medicine: medicine.medicine,
+        route: medicine.route || 'Oral',
+        dose: medicine.dose,
+        frequency: medicine.frequency,
+        duration: medicine.duration || '7 days',
+        advice: advice,
+        status: 'active',
+      });
+      await prescription.save();
+      console.log('💊 Prescription saved:', medicine.medicine);
+    }
+
     // Handle injection details
-    if (needsInjection) {
+    if (needsInjection && injectionDetails) {
       patient.injectionDetails = {
         required: true,
         details: injectionDetails,
@@ -272,10 +364,24 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
         status: 'pending',
         updatedAt: new Date(),
       };
+
+      // Save injection to Injection collection
+      const injection = new Injection({
+        patientId: patient._id,
+        doctorId: doctorId,
+        injectionName: injectionDetails,
+        injectionType: 'IV',
+        dose: 'As per doctor prescription',
+        frequency: 'As per doctor prescription',
+        status: 'pending',
+        notes: injectionDetails,
+      });
+      await injection.save();
+      console.log('💉 Injection saved:', injectionDetails);
     }
 
     // Handle lab test details
-    if (needsLabTest) {
+    if (needsLabTest && labTestDetails) {
       patient.labTestDetails = {
         required: true,
         details: labTestDetails,
@@ -284,7 +390,35 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
         status: 'pending',
         updatedAt: new Date(),
       };
+
+      // Save lab test to LabTest collection
+      const labTest = new LabTest({
+        patientId: patient._id,
+        doctorId: doctorId,
+        testName: labTestDetails,
+        sampleType: 'Blood',
+        status: 'pending',
+        notes: labTestDetails,
+      });
+      await labTest.save();
+      console.log('🧪 Lab test saved:', labTestDetails);
     }
+
+    // Create or update visit record
+    const visit = new Visit({
+      patientId: patient._id,
+      visitType: 'follow-up',
+      symptoms: 'Consultation',
+      description: diagnosis,
+      status: 'completed',
+      assignedDoctorId: doctorId,
+      diagnosis: diagnosis,
+      advice: advice,
+      remarks: remarks,
+      vitals: vitals || {},
+    });
+    await visit.save();
+    console.log('📋 Visit record saved');
 
     // Remove from queue
     patient.inQueue = false;
@@ -307,12 +441,15 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
       };
 
       console.log('🔌 Sending WebSocket update to patient:', patient.patientId);
-      wsManager.broadcastToPatient(patient.patientId, navigationUpdate);
+      wsManager.sendNavigationUpdate(patient.patientId, navigationUpdate.data);
     }
 
     res.json({
       message: 'Patient record saved successfully',
       patient,
+      prescriptions: validMedicines.length,
+      injections: needsInjection ? 1 : 0,
+      labTests: needsLabTest ? 1 : 0,
     });
   } catch (error) {
     console.error('❌ Error saving patient record:', error);

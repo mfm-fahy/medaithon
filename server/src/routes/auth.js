@@ -179,6 +179,16 @@ router.post('/login', async (req, res) => {
       }
     }
 
+    // If doctor, fetch and include doctor's _id and specialization
+    if (user.role === 'doctor') {
+      const doctor = await Doctor.findOne({ userId: user._id });
+      if (doctor) {
+        responseUser._id = doctor._id; // Use doctor's MongoDB _id
+        responseUser.specialization = doctor.specialization;
+        console.log('👨‍⚕️  Doctor found:', doctor._id, 'Specialization:', doctor.specialization);
+      }
+    }
+
     console.log('✅ Login successful for user:', username, 'Role:', user.role);
     res.json({
       message: 'Logged in successfully',

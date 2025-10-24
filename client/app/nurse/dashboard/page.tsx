@@ -90,6 +90,21 @@ export default function NurseDashboard() {
               <Button className="w-full bg-purple-600 hover:bg-purple-700">View History</Button>
             </CardContent>
           </Card>
+
+          {/* Injections Management */}
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => router.push("/nurse/injections")}
+          >
+            <CardHeader>
+              <CardTitle>Injections</CardTitle>
+              <CardDescription>Update injection status for patients</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-4xl text-center mb-4">💉</div>
+              <Button className="w-full bg-purple-600 hover:bg-purple-700">Manage Injections</Button>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>

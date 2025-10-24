@@ -106,6 +106,28 @@ const patientSchema = new mongoose.Schema(
       default: false,
     },
     queuePosition: Number,
+    assignedDoctor: {
+      doctorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Doctor',
+        default: null,
+      },
+      doctorName: String,
+      specialization: String,
+      roomNumber: String,
+      floor: String,
+      assignedAt: Date,
+    },
+    symptoms: [
+      {
+        symptom: String,
+        description: String,
+        recordedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

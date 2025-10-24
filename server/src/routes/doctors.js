@@ -5,12 +5,22 @@ const { authMiddleware, roleMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all doctors
+// Get all doctors (with optional specialization filter)
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const doctors = await Doctor.find().populate('userId', 'username email name');
-    res.json(doctors);
+    const { specialization } = req.query;
+    let query = {};
+
+    if (specialization) {
+      query.specialization = specialization;
+      console.log('🔵 Fetching doctors with specialization:', specialization);
+    }
+
+    const doctors = await Doctor.find(query).populate('userId', 'username email name');
+    console.log('✅ Doctors fetched:', doctors.length);
+    res.json({ doctors });
   } catch (error) {
+    console.error('❌ Error fetching doctors:', error);
     res.status(500).json({ message: 'Error fetching doctors', error });
   }
 });

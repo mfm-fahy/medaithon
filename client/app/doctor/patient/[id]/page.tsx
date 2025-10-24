@@ -8,8 +8,63 @@ import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { mockPatients, mockVitals, mockPrescriptions, mockLabTests } from "@/lib/mock-data"
 import DoctorHeader from "@/components/doctor/doctor-header"
+
+interface PatientData {
+  _id: string
+  patientId: string
+  userId: {
+    name: string
+    email: string
+  }
+  age: number
+  sex: string
+  occupation?: string
+  address?: string
+  medicalHistory?: string
+  allergies?: string
+}
+
+interface Prescription {
+  _id: string
+  medicine: string
+  route: string
+  dose: string
+  frequency: string
+  duration: string
+  status: string
+}
+
+interface LabTest {
+  _id: string
+  testName: string
+  sampleType: string
+  status: string
+  result?: string
+}
+
+interface Injection {
+  _id: string
+  injectionName: string
+  injectionType: string
+  dose: string
+  frequency: string
+  status: string
+}
+
+interface Visit {
+  _id: string
+  diagnosis: string
+  advice: string
+  remarks: string
+  vitals?: any
+}
+
+interface Symptom {
+  symptom: string
+  description: string
+  recordedAt: string
+}
 
 export default function PatientDetailsPage() {
   const router = useRouter()
@@ -17,10 +72,13 @@ export default function PatientDetailsPage() {
   const { user, isAuthenticated, loading } = useAuth()
   const patientId = params.id as string
 
-  const patient = mockPatients.find((p) => p.id === patientId)
-  const patientVitals = mockVitals.filter((v) => v.patientId === patientId)
-  const patientPrescriptions = mockPrescriptions.filter((p) => p.patientId === patientId)
-  const patientLabTests = mockLabTests.filter((t) => t.patientId === patientId)
+  const [patient, setPatient] = useState<PatientData | null>(null)
+  const [patientVitals, setPatientVitals] = useState<any[]>([])
+  const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([])
+  const [patientLabTests, setPatientLabTests] = useState<LabTest[]>([])
+  const [patientInjections, setPatientInjections] = useState<Injection[]>([])
+  const [patientVisits, setPatientVisits] = useState<Visit[]>([])
+  const [patientSymptoms, setPatientSymptoms] = useState<Symptom[]>([])
 
   const [diagnosis, setDiagnosis] = useState("")
   const [remarks, setRemarks] = useState("")
@@ -32,7 +90,7 @@ export default function PatientDetailsPage() {
     heartRate: "",
     respiratoryRate: "",
   })
-  const [medicines, setMedicines] = useState([{ medicine: "", route: "", dose: "", frequency: "" }])
+  const [medicines, setMedicines] = useState([{ medicine: "", route: "", dose: "", frequency: "", duration: "7 days" }])
   const [advice, setAdvice] = useState("")
 
   const [needsInjection, setNeedsInjection] = useState(false)
@@ -41,15 +99,62 @@ export default function PatientDetailsPage() {
   const [labTestDetails, setLabTestDetails] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState("")
+  const [pageLoading, setPageLoading] = useState(true)
+
+  // Fetch patient data from backend
+  const fetchPatientData = async () => {
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        router.push("/doctor/signin")
+        return
+      }
+
+      const response = await fetch(`http://localhost:5000/api/patients/${patientId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch patient data")
+      }
+
+      const data = await response.json()
+      setPatient(data.patient)
+      setPatientVitals(data.vitals || [])
+      setPatientPrescriptions(data.prescriptions || [])
+      setPatientLabTests(data.labTests || [])
+      setPatientInjections(data.injections || [])
+      setPatientVisits(data.visits || [])
+      setPatientSymptoms(data.patient?.symptoms || [])
+
+      // Pre-fill form with latest visit data if available
+      if (data.visits && data.visits.length > 0) {
+        const latestVisit = data.visits[0]
+        if (latestVisit.diagnosis) setDiagnosis(latestVisit.diagnosis)
+        if (latestVisit.advice) setAdvice(latestVisit.advice)
+        if (latestVisit.remarks) setRemarks(latestVisit.remarks)
+        if (latestVisit.vitals) setVitals(latestVisit.vitals)
+      }
+
+      setPageLoading(false)
+    } catch (error) {
+      console.error("Error fetching patient data:", error)
+      setPageLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/doctor/signin")
+    } else if (!loading && isAuthenticated && patientId) {
+      fetchPatientData()
     }
-  }, [isAuthenticated, loading, router])
+  }, [isAuthenticated, loading, router, patientId])
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  if (loading || pageLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading patient details...</div>
   }
 
   if (!isAuthenticated || user?.role !== "doctor") {
@@ -72,7 +177,11 @@ export default function PatientDetailsPage() {
   }
 
   const addMedicine = () => {
-    setMedicines([...medicines, { medicine: "", route: "", dose: "", frequency: "" }])
+    setMedicines([...medicines, { medicine: "", route: "", dose: "", frequency: "", duration: "7 days" }])
+  }
+
+  const removeMedicine = (index: number) => {
+    setMedicines(medicines.filter((_, i) => i !== index))
   }
 
   const handleSave = async () => {
@@ -83,6 +192,13 @@ export default function PatientDetailsPage() {
       const token = localStorage.getItem("auth_token")
       if (!token) {
         setSaveMessage("❌ Authentication token not found")
+        setSaving(false)
+        return
+      }
+
+      // Validate required fields
+      if (!diagnosis.trim()) {
+        setSaveMessage("❌ Please enter diagnosis")
         setSaving(false)
         return
       }
@@ -98,10 +214,11 @@ export default function PatientDetailsPage() {
           remarks,
           advice,
           medicines,
+          vitals,
           needsInjection,
-          injectionDetails,
+          injectionDetails: needsInjection ? injectionDetails : null,
           needsLabTest,
-          labTestDetails,
+          labTestDetails: needsLabTest ? labTestDetails : null,
         }),
       })
 
@@ -113,7 +230,7 @@ export default function PatientDetailsPage() {
       }
 
       const data = await response.json()
-      setSaveMessage("✅ Patient record saved successfully!")
+      setSaveMessage(`✅ Patient record saved successfully! (${data.prescriptions} prescriptions, ${data.injections} injections, ${data.labTests} lab tests)`)
 
       // Redirect back to dashboard after 2 seconds
       setTimeout(() => {
@@ -140,7 +257,7 @@ export default function PatientDetailsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-gray-600">Name</p>
-                <p className="font-medium">{patient.name}</p>
+                <p className="font-medium">{patient.userId?.name || "N/A"}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Age</p>
@@ -155,16 +272,44 @@ export default function PatientDetailsPage() {
                 <p className="font-medium">{patient.patientId}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Occupation</p>
-                <p className="font-medium">{patient.occupation}</p>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-medium">{patient.userId?.email || "N/A"}</p>
               </div>
               <div className="md:col-span-3">
-                <p className="text-sm text-gray-600">Address</p>
-                <p className="font-medium">{patient.address}</p>
+                <p className="text-sm text-gray-600">Medical History</p>
+                <p className="font-medium">{patient.medicalHistory || "No history recorded"}</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Patient Symptoms from Chatbot */}
+        {patientSymptoms && patientSymptoms.length > 0 && (
+          <Card className="mb-6 border-l-4 border-l-blue-500 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="text-blue-900">📋 Symptoms from Health Assistant</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {patientSymptoms.map((symptom, idx) => (
+                  <div key={idx} className="p-3 bg-white rounded-lg border border-blue-200">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{symptom.symptom}</p>
+                        {symptom.description && (
+                          <p className="text-sm text-gray-600 mt-1">{symptom.description}</p>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 ml-2">
+                        {new Date(symptom.recordedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Diagnosis & Vitals */}
@@ -301,6 +446,8 @@ export default function PatientDetailsPage() {
                           <option value="IV">IV</option>
                           <option value="IM">IM</option>
                           <option value="Topical">Topical</option>
+                          <option value="Inhalation">Inhalation</option>
+                          <option value="Rectal">Rectal</option>
                         </select>
                       </div>
                       <div>
@@ -319,11 +466,30 @@ export default function PatientDetailsPage() {
                           placeholder="e.g., Twice daily"
                         />
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Duration</label>
+                        <Input
+                          value={med.duration || "7 days"}
+                          onChange={(e) => handleMedicineChange(idx, "duration", e.target.value)}
+                          placeholder="e.g., 7 days"
+                        />
+                      </div>
+                      {medicines.length > 1 && (
+                        <div className="flex items-end">
+                          <Button
+                            onClick={() => removeMedicine(idx)}
+                            variant="destructive"
+                            className="w-full"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
                 <Button onClick={addMedicine} variant="outline" className="w-full bg-transparent">
-                  Add Another Medicine
+                  + Add Another Medicine
                 </Button>
               </CardContent>
             </Card>
@@ -413,11 +579,31 @@ export default function PatientDetailsPage() {
                   <CardTitle className="text-lg">Previous Vitals</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  {patientVitals.map((vital) => (
-                    <div key={vital.id} className="p-2 bg-gray-50 rounded">
-                      <p className="font-medium">BP: {vital.bloodPressure}</p>
-                      <p>HR: {vital.heartRate} bpm</p>
-                      <p className="text-xs text-gray-600">{new Date(vital.recordedAt).toLocaleDateString()}</p>
+                  {patientVitals.slice(0, 5).map((vital) => (
+                    <div key={vital._id} className="p-2 bg-gray-50 rounded">
+                      <p className="font-medium">BP: {vital.bloodPressure || "N/A"}</p>
+                      <p>HR: {vital.heartRate || "N/A"} bpm</p>
+                      <p className="text-xs text-gray-600">{new Date(vital.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Previous Prescriptions */}
+            {patientPrescriptions.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Previous Prescriptions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {patientPrescriptions.slice(0, 5).map((prescription) => (
+                    <div key={prescription._id} className="p-2 bg-green-50 rounded border border-green-200">
+                      <p className="font-medium text-green-900">{prescription.medicine}</p>
+                      <p className="text-xs text-green-700">
+                        {prescription.dose} - {prescription.frequency}
+                      </p>
+                      <p className="text-xs text-green-700">Route: {prescription.route}</p>
                     </div>
                   ))}
                 </CardContent>
@@ -430,15 +616,34 @@ export default function PatientDetailsPage() {
                   <CardTitle className="text-lg">Lab Test Results</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
-                  {patientLabTests.map((test) => (
-                    <div key={test.id} className="p-3 bg-blue-50 rounded border border-blue-200">
+                  {patientLabTests.slice(0, 5).map((test) => (
+                    <div key={test._id} className="p-3 bg-blue-50 rounded border border-blue-200">
                       <p className="font-medium text-blue-900">{test.testName}</p>
                       <p className="text-xs text-blue-700">Sample: {test.sampleType}</p>
                       <p className="text-xs text-blue-700 mt-1">
                         Status: <span className="font-semibold capitalize">{test.status}</span>
                       </p>
                       {test.result && <p className="text-xs text-blue-700 mt-1">Result: {test.result}</p>}
-                      {test.uploadedFile && <p className="text-xs text-blue-700 mt-1">📄 {test.uploadedFile.name}</p>}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Previous Injections */}
+            {patientInjections.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Previous Injections</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {patientInjections.slice(0, 5).map((injection) => (
+                    <div key={injection._id} className="p-2 bg-orange-50 rounded border border-orange-200">
+                      <p className="font-medium text-orange-900">{injection.injectionName}</p>
+                      <p className="text-xs text-orange-700">Type: {injection.injectionType}</p>
+                      <p className="text-xs text-orange-700">
+                        {injection.dose} - {injection.frequency}
+                      </p>
                     </div>
                   ))}
                 </CardContent>

@@ -20,6 +20,7 @@ const medicineSchema = new mongoose.Schema(
     },
     expiryDate: {
       type: Date,
+      required: true,
     },
     manufacturer: {
       type: String,
@@ -27,9 +28,22 @@ const medicineSchema = new mongoose.Schema(
     batchNumber: {
       type: String,
     },
+    isExpired: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
+
+// Add index for expiry date for efficient querying
+medicineSchema.index({ expiryDate: 1 });
+
+// Pre-save hook to check if medicine is expired
+medicineSchema.pre('save', function(next) {
+  this.isExpired = new Date() > this.expiryDate;
+  next();
+});
 
 const Medicine = mongoose.model('Medicine', medicineSchema);
 

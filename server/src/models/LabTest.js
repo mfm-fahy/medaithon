@@ -7,6 +7,10 @@ const labTestSchema = new mongoose.Schema(
       ref: 'Patient',
       required: true,
     },
+    doctorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Doctor',
+    },
     labTechnicianId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'LabTechnician',
@@ -39,6 +43,9 @@ const labTestSchema = new mongoose.Schema(
       size: Number,
       uploadedAt: Date,
       data: String,
+    },
+    notes: {
+      type: String,
     },
   },
   { timestamps: true }

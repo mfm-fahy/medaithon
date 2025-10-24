@@ -12,6 +12,7 @@ import vitalsRoutes from './routes/vitals';
 import medicineRoutes from './routes/medicines';
 import labTestRoutes from './routes/lab-tests';
 import visitsRoutes from './routes/visits';
+import chatbotRoutes from './routes/chatbot';
 
 // Load environment variables
 dotenv.config();

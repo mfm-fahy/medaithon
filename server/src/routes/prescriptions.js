@@ -4,10 +4,18 @@ const { authMiddleware, roleMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all prescriptions
-router.get('/', authMiddleware, roleMiddleware(['admin', 'doctor', 'pharmacist']), async (req, res) => {
+// Get all prescriptions (with optional patientId filter)
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const prescriptions = await Prescription.find()
+    const { patientId } = req.query;
+    let query = {};
+
+    // If patientId is provided, filter by patient
+    if (patientId) {
+      query.patientId = patientId;
+    }
+
+    const prescriptions = await Prescription.find(query)
       .populate('patientId', 'userId')
       .populate('doctorId', 'userId');
     res.json(prescriptions);
