@@ -32,6 +32,16 @@ Keep responses concise, friendly, and easy to understand.`;
 
   async sendMessage(userMessage, conversationHistory = []) {
     try {
+      // Check if API key is available
+      if (!OPENROUTER_API_KEY) {
+        console.log('No OpenRouter API key found, using fallback response');
+        return {
+          success: true,
+          message: this.getFallbackResponse(userMessage),
+          usage: { fallback: true },
+        };
+      }
+
       const messages = [
         ...conversationHistory,
         {
@@ -65,11 +75,42 @@ Keep responses concise, friendly, and easy to understand.`;
       };
     } catch (error) {
       console.error('OpenRouter API Error:', error.response?.data || error.message);
+
+      // Fallback response on API error
       return {
-        success: false,
-        error: error.response?.data?.error?.message || 'Failed to get response from AI',
+        success: true,
+        message: this.getFallbackResponse(userMessage),
+        usage: { fallback: true, error: error.message },
       };
     }
+  }
+
+  getFallbackResponse(userMessage) {
+    const responses = [
+      "I understand you're asking about your health. While I can't provide medical advice without an API key, please consult with your doctor for proper guidance. In the meantime, I can help you track your symptoms and prepare questions for your healthcare provider.",
+      "Thank you for sharing that with me. I'm here to help you organize your health information. Please remember that I'm not a substitute for professional medical care. Your doctor is the best person to provide personalized advice.",
+      "I appreciate you reaching out about your health concerns. To ensure you get the most accurate information, please speak with your healthcare provider. I can help you keep track of your symptoms and questions for your appointment.",
+      "Health is important, and I'm glad you're being proactive. While I can't give medical advice right now, I can help you prepare for your doctor's visit by organizing your symptoms and concerns.",
+      "I hear your concern about your health. Please remember that proper medical guidance comes from licensed healthcare professionals. I can assist you in documenting your symptoms for your doctor to review.",
+    ];
+
+    // Simple keyword-based responses
+    const lowerMessage = userMessage.toLowerCase();
+
+    if (lowerMessage.includes('pain') || lowerMessage.includes('hurt')) {
+      return "I'm sorry to hear you're experiencing pain. Please describe your symptoms in detail when you see your doctor, including when it started, how severe it is, and any factors that make it better or worse. They can provide the appropriate guidance.";
+    }
+
+    if (lowerMessage.includes('medicine') || lowerMessage.includes('medication')) {
+      return "Regarding medications, always follow your doctor's instructions carefully. If you have questions about your prescriptions, please contact your doctor or pharmacist directly for clarification.";
+    }
+
+    if (lowerMessage.includes('symptom')) {
+      return "Tracking your symptoms is a good step. Please share this information with your healthcare provider during your next visit. They can help interpret what these symptoms might mean for your health.";
+    }
+
+    // Return a random general response
+    return responses[Math.floor(Math.random() * responses.length)];
   }
 
   async analyzeSymptomsForDiseases(symptoms) {

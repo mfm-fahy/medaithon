@@ -1,5 +1,6 @@
 const express = require('express');
 const { Patient } = require('../models/Patient');
+const { Doctor } = require('../models/Doctor');
 const { Vitals } = require('../models/Vitals');
 const { Prescription } = require('../models/Prescription');
 const { LabTest } = require('../models/LabTest');
@@ -322,6 +323,10 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
     // Get doctor ID from auth
     const doctorId = req.userId;
 
+    // Get doctor details
+    const doctor = await Doctor.findOne({ userId: doctorId }).populate('userId', 'name');
+    const doctorName = doctor?.userId?.name || 'Doctor';
+
     // Helper function to generate random room number
     const generateRandomRoom = () => {
       const floors = ['Ground', '1st', '2nd', '3rd'];
@@ -335,6 +340,19 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
     patient.remarks = remarks;
     patient.advice = advice;
     patient.prescribedMedicines = medicines.filter((m) => m.medicine && m.medicine.trim());
+
+    // Add remarks to history if remarks exist
+    if (remarks && remarks.trim()) {
+      if (!patient.remarksHistory) {
+        patient.remarksHistory = [];
+      }
+      patient.remarksHistory.push({
+        text: remarks,
+        doctorId: doctorId,
+        doctorName: doctorName,
+        createdAt: new Date(),
+      });
+    }
 
     // Save prescriptions to Prescription collection
     const validMedicines = medicines.filter((m) => m.medicine && m.medicine.trim());
@@ -454,6 +472,77 @@ router.post('/:patientId/save-record', authMiddleware, roleMiddleware(['doctor']
   } catch (error) {
     console.error('❌ Error saving patient record:', error);
     res.status(500).json({ message: 'Error saving patient record', error });
+  }
+});
+
+// Get remarks history for a patient
+router.get('/:patientId/remarks-history', authMiddleware, roleMiddleware(['doctor', 'nurse', 'admin']), async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    console.log('📝 Fetching remarks history for patient:', patientId);
+
+    // Find patient by patientId
+    const patient = await Patient.findOne({ patientId }).populate('userId', 'name email');
+    if (!patient) {
+      console.log('❌ Patient not found');
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    const remarksHistory = patient.remarksHistory || [];
+    console.log('✅ Remarks history fetched:', remarksHistory.length, 'remarks');
+
+    res.json({
+      success: true,
+      patientId: patient.patientId,
+      patientName: patient.userId?.name,
+      remarksHistory: remarksHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+      count: remarksHistory.length,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching remarks history:', error);
+    res.status(500).json({ error: 'Failed to fetch remarks history', details: error.message });
+  }
+});
+
+// Delete a specific remark from history
+router.delete('/:patientId/remarks/:remarkId', authMiddleware, roleMiddleware(['doctor', 'admin']), async (req, res) => {
+  try {
+    const { patientId, remarkId } = req.params;
+
+    console.log('🗑️ Deleting remark:', remarkId, 'for patient:', patientId);
+
+    // Find patient by patientId
+    const patient = await Patient.findOne({ patientId });
+    if (!patient) {
+      console.log('❌ Patient not found');
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    // Remove remark from history
+    if (!patient.remarksHistory) {
+      return res.status(404).json({ error: 'No remarks history found' });
+    }
+
+    const initialLength = patient.remarksHistory.length;
+    patient.remarksHistory = patient.remarksHistory.filter((r) => r._id.toString() !== remarkId);
+
+    if (patient.remarksHistory.length === initialLength) {
+      console.log('❌ Remark not found');
+      return res.status(404).json({ error: 'Remark not found' });
+    }
+
+    await patient.save();
+    console.log('✅ Remark deleted successfully');
+
+    res.json({
+      success: true,
+      message: 'Remark deleted successfully',
+      remarksHistory: patient.remarksHistory,
+    });
+  } catch (error) {
+    console.error('❌ Error deleting remark:', error);
+    res.status(500).json({ error: 'Failed to delete remark', details: error.message });
   }
 });
 

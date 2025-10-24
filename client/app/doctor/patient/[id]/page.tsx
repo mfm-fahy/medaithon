@@ -79,6 +79,7 @@ export default function PatientDetailsPage() {
   const [patientInjections, setPatientInjections] = useState<Injection[]>([])
   const [patientVisits, setPatientVisits] = useState<Visit[]>([])
   const [patientSymptoms, setPatientSymptoms] = useState<Symptom[]>([])
+  const [remarksHistory, setRemarksHistory] = useState<any[]>([])
 
   const [diagnosis, setDiagnosis] = useState("")
   const [remarks, setRemarks] = useState("")
@@ -145,11 +146,63 @@ export default function PatientDetailsPage() {
     }
   }
 
+  // Fetch remarks history
+  const fetchRemarksHistory = async () => {
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      const response = await fetch(`http://localhost:5000/api/patients/${patientId}/remarks-history`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch remarks history")
+      }
+
+      const data = await response.json()
+      setRemarksHistory(data.remarksHistory || [])
+    } catch (error) {
+      console.error("Error fetching remarks history:", error)
+    }
+  }
+
+  // Delete a remark
+  const deleteRemark = async (remarkId: string) => {
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) return
+
+      const response = await fetch(`http://localhost:5000/api/patients/${patientId}/remarks/${remarkId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete remark")
+      }
+
+      // Refresh remarks history
+      await fetchRemarksHistory()
+      setSaveMessage("✅ Remark deleted successfully")
+      setTimeout(() => setSaveMessage(""), 3000)
+    } catch (error) {
+      console.error("Error deleting remark:", error)
+      setSaveMessage("❌ Failed to delete remark")
+      setTimeout(() => setSaveMessage(""), 3000)
+    }
+  }
+
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/doctor/signin")
     } else if (!loading && isAuthenticated && patientId) {
       fetchPatientData()
+      fetchRemarksHistory()
     }
   }, [isAuthenticated, loading, router, patientId])
 
@@ -311,6 +364,54 @@ export default function PatientDetailsPage() {
           </Card>
         )}
 
+        {/* Remarks - Top Priority */}
+        <Card className="border-red-300 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-700 text-sm">⚠️ Remarks ({remarksHistory.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Add New Remark */}
+            <div>
+              <label className="block text-xs font-medium text-red-700 mb-2">Add New Remark</label>
+              <textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Enter additional remarks or notes"
+                className="w-full px-3 py-2 border border-red-300 rounded-md text-sm"
+                rows={2}
+              />
+            </div>
+
+            {/* Previous Remarks */}
+            {remarksHistory.length > 0 && (
+              <div className="border-t border-red-200 pt-3">
+                <label className="block text-xs font-medium text-red-700 mb-2">Previous Remarks</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {remarksHistory.map((remark, idx) => (
+                    <div key={remark._id || idx} className="p-2 bg-white rounded border border-red-200 text-xs">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1">
+                          <p className="text-red-900 font-medium">{remark.text}</p>
+                          <p className="text-gray-600 text-xs mt-1">
+                            By: {remark.doctorName} • {new Date(remark.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => deleteRemark(remark._id)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-100 px-2 py-1 rounded text-xs font-medium"
+                          title="Delete remark"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Diagnosis & Vitals */}
           <div className="lg:col-span-2 space-y-6">
@@ -326,21 +427,6 @@ export default function PatientDetailsPage() {
                   placeholder="Enter diagnosis details"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   rows={4}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Remarks</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  placeholder="Enter additional remarks or notes"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  rows={3}
                 />
               </CardContent>
             </Card>

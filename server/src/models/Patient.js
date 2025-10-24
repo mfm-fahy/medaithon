@@ -101,6 +101,19 @@ const patientSchema = new mongoose.Schema(
     diagnosis: String,
     remarks: String,
     advice: String,
+    // Array of remarks with timestamps and doctor info
+    remarksHistory: [
+      {
+        _id: mongoose.Schema.Types.ObjectId,
+        text: String,
+        doctorId: mongoose.Schema.Types.ObjectId,
+        doctorName: String,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     inQueue: {
       type: Boolean,
       default: false,

@@ -204,6 +204,9 @@ export default function PharmacistDashboard() {
             <Button onClick={() => router.push("/pharmacist/inventory")} className="bg-blue-600 hover:bg-blue-700">
               {t("medicineManagement")}
             </Button>
+            <Button onClick={() => router.push("/pharmacist/billing")} className="bg-purple-600 hover:bg-purple-700">
+              💳 Billing
+            </Button>
             <Button onClick={handleLogout} variant="outline" className="bg-white">
               {t("logout")}
             </Button>

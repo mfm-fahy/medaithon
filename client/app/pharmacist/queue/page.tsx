@@ -69,7 +69,7 @@ export default function PharmacistQueue() {
     try {
       setLoadingPatients(true)
       setError("")
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("auth_token")
 
       // Fetch all patients
       const patientsResponse = await fetch("http://localhost:5000/api/patients", {
@@ -346,7 +346,7 @@ export default function PharmacistQueue() {
                               )}
                             </div>
                             <div className="mt-2 pt-2 border-t border-orange-200 text-xs text-gray-600">
-                              Prescribed by: {prescription.doctorId.userId?.name || "Unknown"}
+                              Prescribed by: {prescription.doctorId?.userId?.name || prescription.doctorId?.name || "Unknown"}
                             </div>
                           </div>
                         ))
@@ -358,7 +358,17 @@ export default function PharmacistQueue() {
 
                   {/* Action Button */}
                   <Button
-                    onClick={() => router.push(`/pharmacist/patient/${selectedPatient._id}`)}
+                    onClick={() => {
+                      // Pass patient and prescriptions data to billing page
+                      const prescriptionData = selectedPatient.prescriptions || []
+                      const queryParams = new URLSearchParams({
+                        patientId: selectedPatient._id,
+                        patientName: selectedPatient.userId.name,
+                        patientPhone: selectedPatient.phone,
+                        prescriptions: JSON.stringify(prescriptionData),
+                      })
+                      router.push(`/pharmacist/billing?${queryParams.toString()}`)
+                    }}
                     className="w-full bg-orange-600 hover:bg-orange-700 mt-4"
                   >
                     Manage Medicines

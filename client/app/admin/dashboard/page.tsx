@@ -4,10 +4,12 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useLanguage } from "@/lib/language-context"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { mockPatients, mockDoctors, mockNurses } from "@/lib/mock-data"
 import AdminHeader from "@/components/admin/admin-header"
 import DiseaseMonitor from "@/components/admin/disease-monitor"
+import { BarChart3, FileText } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -111,6 +113,29 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Sales Report Section */}
+        <Card className="mb-6 border-l-4 border-l-green-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-green-600" />
+              Sales & Revenue
+            </CardTitle>
+            <CardDescription>View pharmacy sales reports and medicine statistics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">
+              Monitor all pharmacy billing transactions, revenue trends, and top-selling medicines across the hospital.
+            </p>
+            <Button
+              onClick={() => router.push("/admin/sales-report")}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              View Sales Report
+            </Button>
+          </CardContent>
+        </Card>
 
         <DiseaseMonitor />
       </main>

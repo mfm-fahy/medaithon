@@ -45,7 +45,7 @@ export default function LabTechnicianPatients() {
     setLoadingPatients(true)
     setError("")
     try {
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("auth_token")
       const response = await fetch("http://localhost:5000/api/patients", {
         headers: {
           Authorization: `Bearer ${token}`,

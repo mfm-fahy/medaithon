@@ -17,6 +17,9 @@ const labTestRoutes = require('./routes/lab-tests');
 const visitsRoutes = require('./routes/visits');
 const injectionsRoutes = require('./routes/injections');
 const chatbotRoutes = require('./routes/chatbot');
+const billingRoutes = require('./routes/billing');
+const salesRoutes = require('./routes/sales');
+const queueRoutes = require('./routes/queue');
 
 const app = express();
 const server = http.createServer(app);
@@ -42,6 +45,9 @@ app.use('/api/lab-tests', labTestRoutes);
 app.use('/api/visits', visitsRoutes);
 app.use('/api/injections', injectionsRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/billing', billingRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/queue', queueRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
