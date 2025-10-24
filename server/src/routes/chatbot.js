@@ -3,10 +3,10 @@ const router = express.Router();
 const { Patient } = require('../models/Patient');
 const { ChatSession } = require('../models/ChatSession');
 const openRouterService = require('../services/openRouterService');
-const auth = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 
 // Get or create chat session for patient
-router.get('/session', auth, async (req, res) => {
+router.get('/session', authMiddleware, async (req, res) => {
   try {
     const patient = await Patient.findOne({ userId: req.userId });
     if (!patient) {
@@ -38,7 +38,7 @@ router.get('/session', auth, async (req, res) => {
 });
 
 // Send message to chatbot
-router.post('/message', auth, async (req, res) => {
+router.post('/message', authMiddleware, async (req, res) => {
   try {
     const { message, sessionId } = req.body;
 
@@ -98,7 +98,7 @@ router.post('/message', auth, async (req, res) => {
 });
 
 // Analyze symptoms for possible diseases
-router.post('/analyze-symptoms', auth, async (req, res) => {
+router.post('/analyze-symptoms', authMiddleware, async (req, res) => {
   try {
     const { symptoms, sessionId } = req.body;
 
@@ -126,7 +126,7 @@ router.post('/analyze-symptoms', auth, async (req, res) => {
 });
 
 // Get medicine information
-router.post('/medicine-info', auth, async (req, res) => {
+router.post('/medicine-info', authMiddleware, async (req, res) => {
   try {
     const { medicineName, sessionId } = req.body;
 
@@ -154,7 +154,7 @@ router.post('/medicine-info', auth, async (req, res) => {
 });
 
 // Save symptoms to patient record
-router.post('/save-symptoms', auth, async (req, res) => {
+router.post('/save-symptoms', authMiddleware, async (req, res) => {
   try {
     const { symptoms } = req.body;
 
@@ -189,7 +189,7 @@ router.post('/save-symptoms', auth, async (req, res) => {
 });
 
 // Get patient symptoms (for doctor)
-router.get('/patient-symptoms/:patientId', auth, async (req, res) => {
+router.get('/patient-symptoms/:patientId', authMiddleware, async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.patientId);
     if (!patient) {
@@ -207,7 +207,7 @@ router.get('/patient-symptoms/:patientId', auth, async (req, res) => {
 });
 
 // Close chat session
-router.post('/close-session', auth, async (req, res) => {
+router.post('/close-session', authMiddleware, async (req, res) => {
   try {
     const { sessionId } = req.body;
 

@@ -52,19 +52,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("📊 Response status:", response.status)
       console.log("📊 Response ok:", response.ok)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error("❌ Login failed:", errorData)
-        throw new Error(errorData.message || "Login failed")
-      }
-
       let data
       try {
         data = await response.json()
       } catch (parseError) {
         console.error("❌ Failed to parse response JSON:", parseError)
-        console.log("📝 Response text:", await response.text())
         throw new Error("Failed to parse login response")
+      }
+
+      if (!response.ok) {
+        console.error("❌ Login failed:", data)
+        throw new Error(data.message || "Login failed")
       }
 
       console.log("✅ Login response received:", data)
@@ -103,13 +101,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log("📡 Auth context: Response status:", response.status)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error("❌ Auth context: Response not ok:", errorData)
-        throw new Error(errorData.message || "Signup failed")
+      let responseData
+      try {
+        responseData = await response.json()
+      } catch (parseError) {
+        console.error("❌ Failed to parse signup response JSON:", parseError)
+        throw new Error("Failed to parse signup response")
       }
 
-      const responseData = await response.json()
+      if (!response.ok) {
+        console.error("❌ Auth context: Response not ok:", responseData)
+        throw new Error(responseData.message || "Signup failed")
+      }
+
       console.log("✅ Auth context: Response data:", responseData)
       const { token, user } = responseData
 
