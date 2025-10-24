@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,12 +9,13 @@ import { useLanguage } from "@/lib/language-context"
 import { useAuth } from "@/lib/auth-context"
 
 interface LabTest {
-  id: string
+  _id: string
   testName: string
   sampleType: string
   status: "pending" | "in-progress" | "completed"
   estimatedTime?: string
   result?: string
+  resultDate?: string
   uploadedFile?: {
     name: string
     type: string
@@ -24,27 +25,27 @@ interface LabTest {
   }
 }
 
+interface PatientData {
+  _id: string
+  patientId: string
+  userId: {
+    name: string
+    email: string
+  }
+  age: number
+  sex: string
+}
+
 export default function LabTechnicianTests() {
   const router = useRouter()
   const params = useParams()
   const { t } = useLanguage()
-  const { user } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const patientId = params.id as string
 
-  const [tests, setTests] = useState<LabTest[]>([
-    {
-      id: "test_001",
-      testName: "Complete Blood Count",
-      sampleType: "Blood",
-      status: "pending",
-    },
-    {
-      id: "test_002",
-      testName: "Urinalysis",
-      sampleType: "Urine",
-      status: "pending",
-    },
-  ])
+  const [tests, setTests] = useState<LabTest[]>([])
+  const [patient, setPatient] = useState<PatientData | null>(null)
+  const [pageLoading, setPageLoading] = useState(true)
 
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
   const [estimatedHours, setEstimatedHours] = useState("")
@@ -52,75 +53,258 @@ export default function LabTechnicianTests() {
   const [resultValue, setResultValue] = useState("")
   const [showResultForm, setShowResultForm] = useState(false)
   const [showFileUpload, setShowFileUpload] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState("")
 
-  if (!user || user.role !== "labTechnician") {
-    router.push("/lab-technician/signin")
-    return null
+  // Fetch patient and lab tests
+  const fetchPatientAndTests = async () => {
+    try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        router.push("/lab-technician/signin")
+        return
+      }
+
+      // Fetch patient details
+      const patientRes = await fetch(`http://localhost:5000/api/patients/${patientId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!patientRes.ok) {
+        throw new Error("Failed to fetch patient")
+      }
+
+      const patientData = await patientRes.json()
+      setPatient(patientData.patient)
+
+      // Fetch lab tests for this patient
+      const testsRes = await fetch(`http://localhost:5000/api/patients/${patientId}/lab-tests`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!testsRes.ok) {
+        throw new Error("Failed to fetch lab tests")
+      }
+
+      const testsData = await testsRes.json()
+      setTests(testsData)
+      setPageLoading(false)
+    } catch (error) {
+      console.error("Error fetching data:", error)
+      setPageLoading(false)
+    }
   }
 
-  const handleEstimateTime = (testId: string) => {
-    if (estimatedHours || estimatedMinutes) {
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push("/lab-technician/signin")
+    } else if (!loading && isAuthenticated && patientId) {
+      fetchPatientAndTests()
+    }
+  }, [isAuthenticated, loading, router, patientId])
+
+  if (loading || pageLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
+  if (!isAuthenticated || user?.role !== "labTechnician") {
+    return <div className="flex items-center justify-center min-h-screen">Redirecting...</div>
+  }
+
+  const handleEstimateTime = async (testId: string) => {
+    try {
+      if (!estimatedHours && !estimatedMinutes) {
+        setMessage("❌ Please enter estimated time")
+        return
+      }
+
+      setSubmitting(true)
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        setMessage("❌ Authentication token not found")
+        setSubmitting(false)
+        return
+      }
+
+      const estimatedTime = `${estimatedHours || "0"}h ${estimatedMinutes || "0"}m`
+
+      const response = await fetch(`http://localhost:5000/api/lab-tests/${testId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: "in-progress",
+          estimatedTime: estimatedTime,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update test")
+      }
+
+      const data = await response.json()
       setTests(
         tests.map((test) =>
-          test.id === testId
+          test._id === testId
             ? {
                 ...test,
-                estimatedTime: `${estimatedHours || "0"}h ${estimatedMinutes || "0"}m`,
+                estimatedTime: estimatedTime,
                 status: "in-progress",
               }
             : test,
         ),
       )
+      setMessage("✅ Estimated time updated successfully")
       setEstimatedHours("")
       setEstimatedMinutes("")
       setSelectedTest(null)
+      setTimeout(() => setMessage(""), 3000)
+    } catch (error) {
+      setMessage(`❌ ${error instanceof Error ? error.message : "Failed to update test"}`)
+      setTimeout(() => setMessage(""), 3000)
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const handleAddResult = (testId: string) => {
-    if (resultValue) {
+  const handleAddResult = async (testId: string) => {
+    try {
+      if (!resultValue.trim()) {
+        setMessage("❌ Please enter a result value")
+        return
+      }
+
+      setSubmitting(true)
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        setMessage("❌ Authentication token not found")
+        setSubmitting(false)
+        return
+      }
+
+      const response = await fetch(`http://localhost:5000/api/lab-tests/${testId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: "completed",
+          result: resultValue,
+          resultDate: new Date().toISOString(),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to add result")
+      }
+
+      const data = await response.json()
       setTests(
         tests.map((test) =>
-          test.id === testId
+          test._id === testId
             ? {
                 ...test,
                 result: resultValue,
+                resultDate: new Date().toISOString(),
                 status: "completed",
               }
             : test,
         ),
       )
+      setMessage("✅ Result added successfully and sent to doctor & patient")
       setResultValue("")
       setShowResultForm(false)
       setSelectedTest(null)
+      setTimeout(() => setMessage(""), 3000)
+    } catch (error) {
+      setMessage(`❌ ${error instanceof Error ? error.message : "Failed to add result"}`)
+      setTimeout(() => setMessage(""), 3000)
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const handleFileUpload = (testId: string, file: File) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const fileData = e.target?.result as string
-      setTests(
-        tests.map((test) =>
-          test.id === testId
-            ? {
-                ...test,
-                uploadedFile: {
-                  name: file.name,
-                  type: file.type,
-                  size: file.size,
-                  uploadedAt: new Date().toLocaleString(),
-                  data: fileData,
-                },
-                status: "completed",
-              }
-            : test,
-        ),
-      )
-      setShowFileUpload(false)
-      setSelectedTest(null)
+  const handleFileUpload = async (testId: string, file: File) => {
+    try {
+      setSubmitting(true)
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        setMessage("❌ Authentication token not found")
+        setSubmitting(false)
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const fileData = e.target?.result as string
+
+          const response = await fetch(`http://localhost:5000/api/lab-tests/${testId}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              status: "completed",
+              uploadedFile: {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                uploadedAt: new Date().toISOString(),
+                data: fileData,
+              },
+              resultDate: new Date().toISOString(),
+            }),
+          })
+
+          if (!response.ok) {
+            throw new Error("Failed to upload file")
+          }
+
+          const data = await response.json()
+          setTests(
+            tests.map((test) =>
+              test._id === testId
+                ? {
+                    ...test,
+                    uploadedFile: {
+                      name: file.name,
+                      type: file.type,
+                      size: file.size,
+                      uploadedAt: new Date().toLocaleString(),
+                      data: fileData,
+                    },
+                    resultDate: new Date().toISOString(),
+                    status: "completed",
+                  }
+                : test,
+            ),
+          )
+          setMessage("✅ File uploaded successfully and sent to doctor & patient")
+          setShowFileUpload(false)
+          setSelectedTest(null)
+          setTimeout(() => setMessage(""), 3000)
+        } catch (error) {
+          setMessage(`❌ ${error instanceof Error ? error.message : "Failed to upload file"}`)
+          setTimeout(() => setMessage(""), 3000)
+        } finally {
+          setSubmitting(false)
+        }
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      setMessage(`❌ ${error instanceof Error ? error.message : "Failed to process file"}`)
+      setSubmitting(false)
+      setTimeout(() => setMessage(""), 3000)
     }
-    reader.readAsDataURL(file)
   }
 
   const handleDownloadFile = (uploadedFile: LabTest["uploadedFile"]) => {
@@ -142,14 +326,50 @@ export default function LabTechnicianTests() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-100 p-6">
       <div className="max-w-4xl mx-auto">
-        <Button onClick={() => router.push("/lab-technician/dashboard")} variant="outline" className="mb-6">
-          {t("back")}
+        <Button onClick={() => router.push("/lab-technician/qr-scanner")} variant="outline" className="mb-6">
+          ← {t("back")}
         </Button>
+
+        {/* Patient Info Card */}
+        {patient && (
+          <Card className="mb-6 border-l-4 border-l-cyan-600">
+            <CardHeader>
+              <CardTitle className="text-cyan-900">👤 Patient Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Patient ID</p>
+                  <p className="font-semibold">{patient.patientId}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Name</p>
+                  <p className="font-semibold">{patient.userId.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Age</p>
+                  <p className="font-semibold">{patient.age}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Sex</p>
+                  <p className="font-semibold capitalize">{patient.sex}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Message Display */}
+        {message && (
+          <div className={`mb-6 p-4 rounded-lg border ${message.includes("✅") ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+            <p className={message.includes("✅") ? "text-green-800" : "text-red-800"}>{message}</p>
+          </div>
+        )}
 
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>
-              {t("labTests")} - Patient ID: {patientId}
+              🧪 {t("labTests")} ({tests.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -158,7 +378,7 @@ export default function LabTechnicianTests() {
                 <p className="text-gray-600">{t("noTestsFound")}</p>
               ) : (
                 tests.map((test) => (
-                  <Card key={test.id} className="border">
+                  <Card key={test._id} className="border">
                     <CardContent className="pt-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
@@ -174,15 +394,15 @@ export default function LabTechnicianTests() {
                           <p
                             className={`font-semibold ${test.status === "completed" ? "text-green-600" : test.status === "in-progress" ? "text-yellow-600" : "text-gray-600"}`}
                           >
-                            {test.status === "pending" && t("pending")}
-                            {test.status === "in-progress" && t("inProgress")}
-                            {test.status === "completed" && t("completed")}
+                            {test.status === "pending" && "⏳ Pending"}
+                            {test.status === "in-progress" && "⏱️ In Progress"}
+                            {test.status === "completed" && "✅ Completed"}
                           </p>
                         </div>
                         {test.estimatedTime && (
                           <div>
                             <p className="text-sm text-gray-600">{t("estimatedResultTime")}</p>
-                            <p className="font-semibold">{test.estimatedTime}</p>
+                            <p className="font-semibold">⏰ {test.estimatedTime}</p>
                           </div>
                         )}
                       </div>
@@ -221,7 +441,7 @@ export default function LabTechnicianTests() {
                       <div className="flex gap-2 flex-wrap">
                         {test.status !== "completed" && (
                           <>
-                            {selectedTest === test.id && !showResultForm && !showFileUpload ? (
+                            {selectedTest === test._id && !showResultForm && !showFileUpload ? (
                               <div className="w-full space-y-2">
                                 <div className="flex gap-2">
                                   <Input
@@ -239,24 +459,25 @@ export default function LabTechnicianTests() {
                                     className="w-20"
                                   />
                                   <Button
-                                    onClick={() => handleEstimateTime(test.id)}
+                                    onClick={() => handleEstimateTime(test._id)}
+                                    disabled={submitting}
                                     className="bg-cyan-600 hover:bg-cyan-700"
                                   >
-                                    {t("estimateTime")}
+                                    {submitting ? "Updating..." : "Set Time"}
                                   </Button>
                                 </div>
                               </div>
                             ) : (
                               <Button
                                 onClick={() => {
-                                  setSelectedTest(test.id)
+                                  setSelectedTest(test._id)
                                   setShowResultForm(false)
                                   setShowFileUpload(false)
                                 }}
                                 variant="outline"
                                 className="text-cyan-600 border-cyan-600"
                               >
-                                {t("estimateTime")}
+                                ⏱️ Set Estimate Time
                               </Button>
                             )}
                           </>
@@ -264,7 +485,7 @@ export default function LabTechnicianTests() {
 
                         {test.status === "in-progress" && (
                           <>
-                            {selectedTest === test.id && showResultForm ? (
+                            {selectedTest === test._id && showResultForm ? (
                               <div className="w-full space-y-2">
                                 <Input
                                   type="text"
@@ -273,49 +494,51 @@ export default function LabTechnicianTests() {
                                   onChange={(e) => setResultValue(e.target.value)}
                                 />
                                 <Button
-                                  onClick={() => handleAddResult(test.id)}
+                                  onClick={() => handleAddResult(test._id)}
+                                  disabled={submitting}
                                   className="bg-green-600 hover:bg-green-700"
                                 >
-                                  {t("addResult")}
+                                  {submitting ? "Submitting..." : "✅ Submit Result"}
                                 </Button>
                               </div>
                             ) : (
                               <Button
                                 onClick={() => {
-                                  setSelectedTest(test.id)
+                                  setSelectedTest(test._id)
                                   setShowResultForm(true)
                                   setShowFileUpload(false)
                                 }}
                                 className="bg-green-600 hover:bg-green-700"
                               >
-                                {t("addResult")}
+                                ✅ Add Result
                               </Button>
                             )}
 
-                            {selectedTest === test.id && showFileUpload ? (
+                            {selectedTest === test._id && showFileUpload ? (
                               <div className="w-full space-y-2">
                                 <Input
                                   type="file"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0]
                                     if (file) {
-                                      handleFileUpload(test.id, file)
+                                      handleFileUpload(test._id, file)
                                     }
                                   }}
                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                                   className="w-full"
+                                  disabled={submitting}
                                 />
                               </div>
                             ) : (
                               <Button
                                 onClick={() => {
-                                  setSelectedTest(test.id)
+                                  setSelectedTest(test._id)
                                   setShowFileUpload(true)
                                   setShowResultForm(false)
                                 }}
                                 className="bg-purple-600 hover:bg-purple-700"
                               >
-                                {t("uploadResultFile")}
+                                📄 Upload Result File
                               </Button>
                             )}
                           </>

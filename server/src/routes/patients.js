@@ -48,7 +48,7 @@ router.get('/doctor/:doctorId', authMiddleware, roleMiddleware(['doctor', 'admin
 });
 
 // Get patient by QR code (Patient ID)
-router.get('/qr/:patientId', authMiddleware, roleMiddleware(['doctor', 'nurse', 'lab-technician', 'admin']), async (req, res) => {
+router.get('/qr/:patientId', authMiddleware, roleMiddleware(['doctor', 'nurse', 'labTechnician', 'admin']), async (req, res) => {
   try {
     console.log('🔵 Fetching patient by QR code:', req.params.patientId);
 
@@ -86,7 +86,7 @@ router.get('/qr/:patientId', authMiddleware, roleMiddleware(['doctor', 'nurse', 
 });
 
 // Update patient by QR code (for doctors, nurses, lab technicians)
-router.put('/qr/:patientId', authMiddleware, roleMiddleware(['doctor', 'nurse', 'lab-technician', 'admin']), async (req, res) => {
+router.put('/qr/:patientId', authMiddleware, roleMiddleware(['doctor', 'nurse', 'labTechnician', 'admin']), async (req, res) => {
   try {
     const { medicalHistory, allergies, notes } = req.body;
     const userRole = req.userRole;
@@ -107,7 +107,7 @@ router.put('/qr/:patientId', authMiddleware, roleMiddleware(['doctor', 'nurse', 
       if (medicalHistory) patient.medicalHistory = medicalHistory;
     }
 
-    if (userRole === 'lab-technician' || userRole === 'admin') {
+    if (userRole === 'labTechnician' || userRole === 'admin') {
       // Lab technicians can add notes to medical history
       if (notes) {
         patient.medicalHistory = (patient.medicalHistory || '') + '\n[Lab Notes] ' + notes;

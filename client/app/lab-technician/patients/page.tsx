@@ -36,7 +36,7 @@ export default function LabTechnicianPatients() {
   }, [isAuthenticated, loading, router])
 
   useEffect(() => {
-    if (isAuthenticated && user?.role === "lab-technician") {
+    if (isAuthenticated && user?.role === "labTechnician") {
       fetchPatients()
     }
   }, [isAuthenticated, user])

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,12 +11,23 @@ import LanguageSwitcher from "@/components/language-switcher"
 export default function LabTechnicianDashboard() {
   const router = useRouter()
   const { t } = useLanguage()
-  const { user, logout } = useAuth()
+  const { user, logout, loading } = useAuth()
   const [scannedPatientId, setScannedPatientId] = useState("")
 
+  useEffect(() => {
+    if (!loading) {
+      if (!user || user.role !== "labTechnician") {
+        router.push("/lab-technician/signin")
+      }
+    }
+  }, [loading, user, router])
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
   if (!user || user.role !== "labTechnician") {
-    router.push("/lab-technician/signin")
-    return null
+    return <div className="flex items-center justify-center min-h-screen">Redirecting...</div>
   }
 
   const handleScanClick = () => {

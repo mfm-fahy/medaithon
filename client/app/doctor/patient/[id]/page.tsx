@@ -147,12 +147,19 @@ export default function PatientDetailsPage() {
   }
 
   // Fetch remarks history
-  const fetchRemarksHistory = async () => {
+  const fetchRemarksHistory = async (patientData?: any) => {
     try {
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      const response = await fetch(`http://localhost:5000/api/patients/${patientId}/remarks-history`, {
+      // Use the patient's patientId field (string ID like "PAT001"), not the MongoDB _id
+      const pId = patientData?.patientId || patient?.patientId
+      if (!pId) {
+        console.log("Patient ID not available yet")
+        return
+      }
+
+      const response = await fetch(`http://localhost:5000/api/patients/${pId}/remarks-history`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -175,7 +182,13 @@ export default function PatientDetailsPage() {
       const token = localStorage.getItem("auth_token")
       if (!token) return
 
-      const response = await fetch(`http://localhost:5000/api/patients/${patientId}/remarks/${remarkId}`, {
+      const pId = patient?.patientId
+      if (!pId) {
+        setSaveMessage("❌ Patient ID not available")
+        return
+      }
+
+      const response = await fetch(`http://localhost:5000/api/patients/${pId}/remarks/${remarkId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -187,7 +200,7 @@ export default function PatientDetailsPage() {
       }
 
       // Refresh remarks history
-      await fetchRemarksHistory()
+      await fetchRemarksHistory(patient)
       setSaveMessage("✅ Remark deleted successfully")
       setTimeout(() => setSaveMessage(""), 3000)
     } catch (error) {
@@ -202,9 +215,15 @@ export default function PatientDetailsPage() {
       router.push("/doctor/signin")
     } else if (!loading && isAuthenticated && patientId) {
       fetchPatientData()
-      fetchRemarksHistory()
     }
   }, [isAuthenticated, loading, router, patientId])
+
+  // Fetch remarks history after patient data is loaded
+  useEffect(() => {
+    if (patient?.patientId) {
+      fetchRemarksHistory(patient)
+    }
+  }, [patient?.patientId])
 
   if (loading || pageLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading patient details...</div>
