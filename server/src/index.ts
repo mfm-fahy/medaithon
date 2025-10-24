@@ -13,6 +13,7 @@ import medicineRoutes from './routes/medicines';
 import labTestRoutes from './routes/lab-tests';
 import visitsRoutes from './routes/visits';
 import chatbotRoutes from './routes/chatbot';
+import feedbackRoutes from './routes/feedback';
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +38,7 @@ app.use('/api/vitals', vitalsRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/lab-tests', labTestRoutes);
 app.use('/api/visits', visitsRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

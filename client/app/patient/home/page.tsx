@@ -10,6 +10,7 @@ import PatientNavigation from "@/components/patient/patient-navigation"
 import QRCodeDisplay from "@/components/patient/qr-code-display"
 import VisitForm from "@/components/patient/visit-form"
 import ChatbotFloatingButton from "@/components/patient/chatbot-floating-button"
+import FeedbackModal from "@/components/patient/feedback-modal"
 
 export default function PatientHome() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export default function PatientHome() {
   const [visitScheduled, setVisitScheduled] = useState(false)
   const [latestTriageColor, setLatestTriageColor] = useState<string | null>(null)
   const [loadingTriage, setLoadingTriage] = useState(false)
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -199,8 +201,37 @@ export default function PatientHome() {
           />
         </div>
 
+        {/* Feedback Section */}
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>📝 Share Your Feedback</CardTitle>
+              <CardDescription>Help us improve our hospital services</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600 mb-4">
+                Your feedback is valuable to us. Please share your experience and suggestions to help us provide better healthcare services.
+              </p>
+              <Button
+                onClick={() => setFeedbackModalOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                💬 Give Feedback
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
         <PatientNavigation visitScheduled={visitScheduled} />
       </main>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        patientId={(user as any)?.patientId}
+        patientName={user?.name}
+      />
     </div>
   )
 }

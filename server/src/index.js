@@ -22,6 +22,7 @@ const billingRoutes = require('./routes/billing');
 const salesRoutes = require('./routes/sales');
 const queueRoutes = require('./routes/queue');
 const biomedicalRoutes = require('./routes/biomedical');
+const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 const server = http.createServer(app);
@@ -51,6 +52,7 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/biomedical', biomedicalRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
