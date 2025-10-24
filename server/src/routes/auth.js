@@ -7,6 +7,7 @@ const { Nurse } = require('../models/Nurse');
 const { Pharmacist } = require('../models/Pharmacist');
 const { LabTechnician } = require('../models/LabTechnician');
 const { Admin } = require('../models/Admin');
+const { Staff } = require('../models/Staff');
 const { generateQRCodeData } = require('../services/hospitalNavigation');
 
 const router = express.Router();
@@ -63,6 +64,14 @@ router.post('/signup', async (req, res) => {
       case 'admin':
         await Admin.create({ userId: user._id, ...roleSpecificData });
         break;
+      case 'biomedical':
+        await Staff.create({ userId: user._id, role: 'biomedical', ...roleSpecificData });
+        break;
+    }
+
+    // Create Staff record for non-patient roles
+    if (role !== 'patient' && role !== 'admin') {
+      await Staff.create({ userId: user._id, role, ...roleSpecificData });
     }
 
     // Generate token

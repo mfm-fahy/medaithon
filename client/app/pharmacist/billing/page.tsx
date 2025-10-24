@@ -66,7 +66,14 @@ export default function PharmacistBilling() {
     taxPercentage: 0,
     paymentMethod: "cash",
     notes: "",
+    hasInsurance: false,
+    insuranceType: "none",
+    hasADR: false,
   })
+
+  // Insurance state
+  const [insuranceFile, setInsuranceFile] = useState<File | null>(null)
+  const [uploadingInsurance, setUploadingInsurance] = useState(false)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -106,6 +113,9 @@ export default function PharmacistBilling() {
           taxPercentage: 0,
           paymentMethod: "cash",
           notes: "",
+          hasInsurance: false,
+          insuranceType: "none",
+          hasADR: false,
         })
       } catch (err) {
         console.error("Error parsing prescriptions:", err)
@@ -193,6 +203,12 @@ export default function PharmacistBilling() {
         return
       }
 
+      // Validate insurance file if insurance is selected
+      if (formData.hasInsurance && formData.insuranceType !== "none" && !insuranceFile) {
+        setError("❌ Please upload insurance card")
+        return
+      }
+
       const token = localStorage.getItem("auth_token")
 
       console.log('📝 Sending bill creation request...')
@@ -210,6 +226,8 @@ export default function PharmacistBilling() {
           discountPercentage: formData.discountPercentage,
           taxPercentage: formData.taxPercentage,
           paymentMethod: formData.paymentMethod,
+          hasInsurance: formData.hasInsurance,
+          insuranceType: formData.insuranceType,
           notes: formData.notes,
         }),
       })
@@ -247,6 +265,42 @@ export default function PharmacistBilling() {
         }
       }
 
+      // Upload insurance card if provided
+      if (formData.hasInsurance && formData.insuranceType !== "none" && insuranceFile) {
+        try {
+          setUploadingInsurance(true)
+          console.log('📄 Uploading insurance card for bill:', data.bill._id)
+
+          const formDataInsurance = new FormData()
+          formDataInsurance.append('insuranceCard', insuranceFile)
+          formDataInsurance.append('insuranceType', formData.insuranceType)
+
+          const insuranceResponse = await fetch(`http://localhost:5000/api/billing/${data.bill._id}/upload-insurance`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formDataInsurance,
+          })
+
+          if (!insuranceResponse.ok) {
+            throw new Error("Failed to upload insurance card")
+          }
+
+          const insuranceData = await insuranceResponse.json()
+          console.log('✅ Insurance card uploaded:', insuranceData)
+          data.bill = insuranceData.bill
+          setSuccess(`Bill created successfully! 🎉 Insurance discount (25%) applied. New total: ₹${insuranceData.newTotal.toFixed(2)}`)
+        } catch (err) {
+          console.error("Error uploading insurance card:", err)
+          setSuccess("Bill created successfully! (Insurance upload failed)")
+        } finally {
+          setUploadingInsurance(false)
+        }
+      } else {
+        setSuccess("Bill created successfully!")
+      }
+
       // Create sales record
       try {
         console.log('📊 Creating sales record for bill:', data.bill._id)
@@ -262,7 +316,6 @@ export default function PharmacistBilling() {
         console.error("Error creating sales record:", err)
       }
 
-      setSuccess("Bill created successfully!")
       setSelectedBill(data.bill)
       setShowNewBill(false)
       setFormData({
@@ -273,7 +326,10 @@ export default function PharmacistBilling() {
         taxPercentage: 0,
         paymentMethod: "cash",
         notes: "",
+        hasInsurance: false,
+        insuranceType: "none",
       })
+      setInsuranceFile(null)
       setPatientIdFromQueue(null)
       fetchBills()
     } catch (err) {
@@ -283,14 +339,27 @@ export default function PharmacistBilling() {
 
   const calculateBillTotal = () => {
     const subtotal = formData.items.reduce((sum, item) => sum + item.totalPrice, 0)
-    const discount = (subtotal * formData.discountPercentage) / 100
+
+    // Calculate total discount (manual + insurance)
+    let totalDiscountPercentage = formData.discountPercentage
+    let insuranceDiscount = 0
+
+    if (formData.hasInsurance && formData.insuranceType !== "none") {
+      insuranceDiscount = 25 // 25% insurance discount
+      totalDiscountPercentage += insuranceDiscount
+    }
+
+    const discount = (subtotal * totalDiscountPercentage) / 100
     const taxableAmount = subtotal - discount
     const tax = (taxableAmount * formData.taxPercentage) / 100
+
     return {
       subtotal,
       discount,
       tax,
       total: taxableAmount + tax,
+      insuranceDiscount,
+      totalDiscountPercentage,
     }
   }
 
@@ -689,6 +758,111 @@ export default function PharmacistBilling() {
                 </div>
               </div>
 
+              {/* Insurance Section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <input
+                    type="checkbox"
+                    id="hasInsurance"
+                    checked={formData.hasInsurance ?? false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        hasInsurance: e.target.checked,
+                        insuranceType: e.target.checked ? "private" : "none",
+                      })
+                    }
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                  <label htmlFor="hasInsurance" className="text-sm font-medium text-gray-700 cursor-pointer">
+                    🏥 Patient has Insurance
+                  </label>
+                </div>
+
+                {(formData.hasInsurance ?? false) && (
+                  <div className="bg-blue-50 p-4 rounded-lg space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Insurance Type
+                      </label>
+                      <select
+                        value={formData.insuranceType}
+                        onChange={(e) =>
+                          setFormData({ ...formData, insuranceType: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border rounded-md"
+                      >
+                        <option value="private">Private Insurance</option>
+                        <option value="government">Government Insurance</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        📄 Upload Insurance Card
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf"
+                        onChange={(e) => setInsuranceFile(e.target.files?.[0] || null)}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Accepted formats: JPEG, PNG, PDF (Max 5MB)
+                      </p>
+                    </div>
+
+                    <div className="bg-green-50 p-3 rounded border border-green-200">
+                      <p className="text-sm text-green-800">
+                        ✅ <strong>25% discount</strong> will be applied to the bill after insurance card upload
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ADR (Adverse Drug Reaction) Section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <input
+                    type="checkbox"
+                    id="hasADR"
+                    checked={formData.hasADR ?? false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        hasADR: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                  <label htmlFor="hasADR" className="text-sm font-medium text-gray-700 cursor-pointer">
+                    ⚠️ Adverse Drug Reaction (ADR) Present
+                  </label>
+                </div>
+
+                {(formData.hasADR ?? false) && (
+                  <div className="bg-red-50 p-4 rounded-lg space-y-4 border border-red-200">
+                    <div className="bg-red-100 p-3 rounded border border-red-300">
+                      <p className="text-sm text-red-800 font-semibold mb-2">
+                        📋 ADR Form Required
+                      </p>
+                      <p className="text-sm text-red-700 mb-3">
+                        Fill out ADR form by obtaining from pharmacy and submit to the same.
+                      </p>
+                      <a
+                        href="/pharmacist/adr-form"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors"
+                      >
+                        📝 Open ADR Form
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Bill Summary */}
               <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                 <div className="flex justify-between">
@@ -696,10 +870,18 @@ export default function PharmacistBilling() {
                   <span>₹{billTotals.subtotal.toFixed(2)}</span>
                 </div>
                 {billTotals.discount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount:</span>
-                    <span>-₹{billTotals.discount.toFixed(2)}</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount ({billTotals.totalDiscountPercentage}%):</span>
+                      <span>-₹{billTotals.discount.toFixed(2)}</span>
+                    </div>
+                    {billTotals.insuranceDiscount > 0 && (
+                      <div className="flex justify-between text-blue-600 text-sm ml-4">
+                        <span>└─ Insurance Discount (25%):</span>
+                        <span>-₹{((billTotals.subtotal * billTotals.insuranceDiscount) / 100).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
                 )}
                 {billTotals.tax > 0 && (
                   <div className="flex justify-between">

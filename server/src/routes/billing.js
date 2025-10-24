@@ -1,8 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { Billing } = require('../models/Billing');
 const { Patient } = require('../models/Patient');
 const { authMiddleware, roleMiddleware } = require('../middleware/auth');
+const { saveInsuranceCard, validateInsuranceCard, deleteInsuranceCard } = require('../services/insuranceService');
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
 
 // Generate unique bill number
 const generateBillNumber = async () => {
@@ -29,7 +37,7 @@ const generateBillNumber = async () => {
 // Create a new bill
 router.post('/create', authMiddleware, roleMiddleware(['pharmacist']), async (req, res) => {
   try {
-    const { patientId, patientName, patientPhone, items, discountPercentage = 0, taxPercentage = 0, paymentMethod = 'cash', notes } = req.body;
+    const { patientId, patientName, patientPhone, items, discountPercentage = 0, taxPercentage = 0, paymentMethod = 'cash', notes, hasInsurance = false, insuranceType = 'none' } = req.body;
 
     console.log('📝 Creating bill with data:', { patientId, patientName, patientPhone, itemsCount: items?.length });
 
@@ -107,6 +115,8 @@ router.post('/create', authMiddleware, roleMiddleware(['pharmacist']), async (re
       discountPercentage: Math.max(0, Math.min(100, discountPercentage || 0)),
       taxPercentage: Math.max(0, Math.min(100, taxPercentage || 0)),
       paymentMethod: paymentMethod || 'cash',
+      hasInsurance: hasInsurance || false,
+      insuranceType: insuranceType || 'none',
       notes: notes || '',
       status: 'completed',
       paymentStatus: 'pending',
@@ -344,6 +354,99 @@ router.get('/report/medicines', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error generating medicine report:', error);
     res.status(500).json({ error: 'Failed to generate report' });
+  }
+});
+
+// Upload insurance card
+router.post('/:billId/upload-insurance', authMiddleware, upload.single('insuranceCard'), async (req, res) => {
+  try {
+    const { billId } = req.params;
+    const { insuranceType } = req.body;
+
+    // Validate bill exists
+    const bill = await Billing.findById(billId);
+    if (!bill) {
+      return res.status(404).json({ error: 'Bill not found' });
+    }
+
+    // Validate insurance type
+    if (!insuranceType || !['private', 'government'].includes(insuranceType)) {
+      return res.status(400).json({ error: 'Invalid insurance type. Must be private or government' });
+    }
+
+    // Validate file
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const validation = validateInsuranceCard(req.file);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    // Delete old insurance card if exists
+    if (bill.insuranceCardPath) {
+      deleteInsuranceCard(bill.insuranceCardPath);
+    }
+
+    // Save new insurance card
+    const savedFile = saveInsuranceCard(req.file.buffer, req.file.originalname, billId);
+
+    // Update bill with insurance information
+    bill.hasInsurance = true;
+    bill.insuranceType = insuranceType;
+    bill.insuranceCardPath = savedFile.filePath;
+    bill.insuranceCardFileName = savedFile.fileName;
+
+    await bill.save();
+
+    console.log(`✅ Insurance card uploaded for bill ${billId}`);
+
+    res.json({
+      success: true,
+      message: 'Insurance card uploaded successfully',
+      bill: bill,
+      insuranceDiscount: bill.insuranceDiscount,
+      newTotal: bill.totalAmount,
+    });
+  } catch (error) {
+    console.error('❌ Error uploading insurance card:', error);
+    res.status(500).json({
+      error: 'Failed to upload insurance card',
+      details: error.message,
+    });
+  }
+});
+
+// Update bill insurance information
+router.put('/:billId/insurance', authMiddleware, async (req, res) => {
+  try {
+    const { billId } = req.params;
+    const { hasInsurance, insuranceType } = req.body;
+
+    const bill = await Billing.findById(billId);
+    if (!bill) {
+      return res.status(404).json({ error: 'Bill not found' });
+    }
+
+    bill.hasInsurance = hasInsurance || false;
+    bill.insuranceType = insuranceType || 'none';
+
+    await bill.save();
+
+    res.json({
+      success: true,
+      message: 'Insurance information updated',
+      bill: bill,
+      insuranceDiscount: bill.insuranceDiscount,
+      newTotal: bill.totalAmount,
+    });
+  } catch (error) {
+    console.error('❌ Error updating insurance information:', error);
+    res.status(500).json({
+      error: 'Failed to update insurance information',
+      details: error.message,
+    });
   }
 });
 

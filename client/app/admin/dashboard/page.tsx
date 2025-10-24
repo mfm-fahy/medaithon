@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { mockPatients, mockDoctors, mockNurses } from "@/lib/mock-data"
 import AdminHeader from "@/components/admin/admin-header"
 import DiseaseMonitor from "@/components/admin/disease-monitor"
-import { BarChart3, FileText } from "lucide-react"
+import OxygenMonitor from "@/components/admin/oxygen-monitor"
+import { BarChart3, FileText, Users } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -167,6 +168,48 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
+        {/* Staff Management Section */}
+        <Card className="mb-6 backdrop-blur-xl bg-white/95 shadow-2xl border-2 border-white/60 hover:shadow-blue-400/30 transition-all duration-700 hover:scale-[1.01] animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-blue-400/10 to-blue-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl"></div>
+
+          <CardHeader className="border-b border-gradient-to-r from-blue-200/50 via-cyan-200/50 to-blue-200/50 relative z-10">
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
+              <Users className="w-6 h-6 text-blue-600" />
+              Staff Management
+            </CardTitle>
+            <CardDescription className="text-gray-600">Add and manage hospital staff members</CardDescription>
+          </CardHeader>
+
+          <CardContent className="relative z-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+              {[
+                { label: "👨‍⚕️ Doctor", color: "from-green-400 to-emerald-500" },
+                { label: "👩‍⚕️ Nurse", color: "from-purple-400 to-pink-500" },
+                { label: "💊 Pharmacist", color: "from-blue-400 to-cyan-500" },
+                { label: "🔬 Lab Tech", color: "from-orange-400 to-red-500" },
+                { label: "⚙️ Biomedical", color: "from-indigo-400 to-purple-500" },
+              ].map((role, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 border-2 border-blue-200/50 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50 hover:from-blue-100/50 hover:to-cyan-100/50 transition-all duration-300 hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-300/30 text-center"
+                >
+                  <p className="text-sm font-semibold text-gray-700">{role.label}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => router.push("/admin/add-staff")}
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 hover:from-blue-600 hover:via-cyan-600 hover:to-blue-700 text-white font-bold rounded-lg shadow-lg hover:shadow-2xl hover:shadow-blue-400/60 transition-all duration-500 hover:scale-[1.02] active:scale-95 border-2 border-blue-300/50 hover:border-blue-200 overflow-hidden relative group"
+            >
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <span className="animate-pulse">+</span>
+                Add New Staff Member
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+            </button>
+          </CardContent>
+        </Card>
+
         {/* Sales Report Section */}
         <Card className="mb-6 border-l-4 border-l-green-500">
           <CardHeader>
@@ -189,6 +232,11 @@ export default function AdminDashboard() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Oxygen Cylinder Monitor */}
+        <div className="mb-6">
+          <OxygenMonitor />
+        </div>
 
         <DiseaseMonitor />
       </main>

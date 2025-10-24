@@ -98,6 +98,23 @@ const billingSchema = new mongoose.Schema(
       enum: ['pending', 'completed', 'failed'],
       default: 'pending',
     },
+    // Insurance fields
+    hasInsurance: {
+      type: Boolean,
+      default: false,
+    },
+    insuranceType: {
+      type: String,
+      enum: ['private', 'government', 'none'],
+      default: 'none',
+    },
+    insuranceCardPath: String,
+    insuranceCardFileName: String,
+    insuranceDiscount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     notes: String,
     status: {
       type: String,
@@ -127,9 +144,17 @@ billingSchema.pre('save', function (next) {
   // Calculate subtotal
   this.subtotal = this.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
-  // Calculate discount amount
-  if (this.discountPercentage > 0) {
-    this.discount = (this.subtotal * this.discountPercentage) / 100;
+  // Calculate discount amount (includes manual discount + insurance discount)
+  let totalDiscount = this.discountPercentage;
+
+  // Add 25% insurance discount if insurance is enabled
+  if (this.hasInsurance && this.insuranceType !== 'none') {
+    this.insuranceDiscount = 25;
+    totalDiscount += this.insuranceDiscount;
+  }
+
+  if (totalDiscount > 0) {
+    this.discount = (this.subtotal * totalDiscount) / 100;
   }
 
   // Calculate tax on subtotal after discount

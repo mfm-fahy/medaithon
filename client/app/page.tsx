@@ -41,18 +41,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Biomedical App */}
-          <Card
-            className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-blue-400"
-            onClick={() => router.push("/biomedical/login")}
-          >
-            <CardHeader>
-              <CardTitle className="text-2xl">🏥 Biomedical</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>Equipment & Waste Management</CardDescription>
-              <Button className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">{t("submit")}</Button>
-            </CardContent>
-          </Card>
+          
 
           {/* Patient */}
           <Card
@@ -141,6 +130,19 @@ export default function Home() {
             <CardContent className="relative">
               <CardDescription className="text-base">{t("labTests")}</CardDescription>
               <Button className="w-full mt-6 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 hover:scale-110 hover:shadow-lg hover:shadow-cyan-500/50 transition-all duration-300 text-white font-semibold group-hover:animate-shine">{t("submit")}</Button>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-blue-400"
+            onClick={() => router.push("/biomedical/login")}
+          >
+            <CardHeader>
+              <CardTitle className="text-2xl">🏥 Biomedical</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>Equipment & Waste Management</CardDescription>
+              <Button className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">{t("submit")}</Button>
             </CardContent>
           </Card>
         </div>

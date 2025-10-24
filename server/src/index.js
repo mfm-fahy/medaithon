@@ -23,6 +23,8 @@ const salesRoutes = require('./routes/sales');
 const queueRoutes = require('./routes/queue');
 const biomedicalRoutes = require('./routes/biomedical');
 const feedbackRoutes = require('./routes/feedback');
+const adrRoutes = require('./routes/adr');
+const staffRoutes = require('./routes/staff');
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +55,8 @@ app.use('/api/sales', salesRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/biomedical', biomedicalRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/adr', adrRoutes);
+app.use('/api/staff', staffRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
